@@ -1,0 +1,202 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+
+#eorbasic
+r<-GET(paste0(eores,"get_reports_eor_basic_information",sep=""))
+json_text<-content(r, as = "text")
+eorbasic_json<-fromJSON(json_text)
+eorbasic<-eorbasic_json[['rpteorbasic']]
+
+#eorgcmd
+r<-GET(paste0(eores,"get_reports_eor_gcmd_information",sep=""))
+json_text<-content(r, as = "text")
+eorgcmd_json<-fromJSON(json_text)
+eorgcmd<-eorgcmd_json[['rpteorgcmd']]
+
+#eor_attribute
+r<-GET(paste0(eores,"get_reports_eor_standard_attribute_information",sep=""))
+json_text<-content(r, as = "text")
+eorattr_json<-fromJSON(json_text)
+eorattr<-eorattr_json[['rpteorstdattrib']]
+
+#eor_extended_attribute
+r<-GET(paste0(eores,"get_reports_eor_extended_attribute_information",sep=""))
+json_text<-content(r, as = "text")
+eorext_attr_json<-fromJSON(json_text)
+eorext_attr<-eorext_attr_json[['rpteorextattrib']]
+eorext_attr<-eorext_attr %>%
+  select(requirement_id, level, data_latency, data_latency_units)
+
+#eor_attribute
+r<-GET(paste0(eores,"get_reports_eor_documentation",sep=""))
+json_text<-content(r, as = "text")
+eordocs_json<-fromJSON(json_text)
+eordocs<-eordocs_json[['rpteordocs']]
+
+#gcmd
+r<-GET(paste0(eores,"get_reports_gcmd_master",sep=""))
+json_text<-content(r, as = "text")
+gcmd_json<-fromJSON(json_text)
+gcmd<-gcmd_json[['rptgcmdmaster']]
+
+#poh
+r<-GET(paste0(eores,"get_reports_physical_organization_hierarchy",sep=""))
+json_text<-content(r, as = "text")
+poh_json<-fromJSON(json_text)
+poh<-poh_json[['rptpoh']]
+
+#eor_orgs
+r<-GET(paste0(eores,"get_reports_eor_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+eor_poh_json<-fromJSON(json_text)
+eor_poh<-eor_poh_json[['rpteororgs']]
+```
+
+
+```{r}
+eor2gcmd<- eorbasic %>%
+  inner_join(eorgcmd, by = "requirement_id") %>%
+  View()
+
+lou_gcmds<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/lou_gcmd.csv", header = TRUE)
+lou_gcmds<- lou_gcmds %>%
+  mutate(pathway = paste0(gcmd_topic,gcmd_term,gcmd_variable))
+         
+
+eorgcmd_filt_join <- eorgcmd %>%
+  mutate(pathway = paste0(primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable)) %>%
+  filter(pathway %in% lou_gcmds$pathway) %>%
+  select(requirement_id, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable) %>%
+  inner_join(eorbasic, by = "requirement_id") %>%
+  left_join(eorattr, by = c("requirement_id")) %>%
+  left_join(eorext_attr, by = c("requirement_id", "level")) %>%
+  select(-ends_with("_weight")) %>%
+  select(-ends_with("_notes")) %>%
+  select(-ends_with("_trend")) %>%
+  select(-ends_with("_performance_score")) %>%
+  select(requirement_id, requirement_name:requirement_last_updated, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, everything()) %>%
+  write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/lou_gcmd_eores.csv", row.names = FALSE)
+```
+
+
+```{r}
+library(ggplot2)
+snwg<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/snwg.csv", header = TRUE)
+
+snwg_thematic_area<- snwg %>%
+  group_by(SNWG.Thematic.Area) %>%
+#  distinct(snwg$SNWG.Survey.ID, .keep_all = TRUE) %>%
+  summarize(needs = n()) %>% View()
+
+snwg_gcmd<- snwg %>%
+  mutate(gcmd_path = paste0(GCMD.Topic,GCMD.Term, GCMD.Variable, GCMD.Variable.2, GCMD.Variable.3)) %>%
+  distinct(SNWG.Thematic.Area, gcmd_path, .keep_all = TRUE) %>%
+  filter(gcmd_path !="") %>%
+  group_by(SNWG.Thematic.Area) %>%
+  summarize(distinct_gcmd_path = n()) %>%
+  View()
+
+snwg_gcmd<- snwg %>%
+  mutate(gcmd_path = paste0(GCMD.Topic,GCMD.Term,GCMD.Variable)) %>%
+  arrange(GCMD.Topic, GCMD.Term, GCMD.Variable) %>%
+  filter(gcmd_path !="") %>%
+  group_by(gcmd_path, SNWG.Thematic.Area) %>%
+  summarize(count_path_theme = n(),
+          gcmd_topic = GCMD.Topic,
+          gcmd_term = GCMD.Term,
+          gcmd_variable = GCMD.Variable) %>% 
+  as.data.frame() %>%
+  arrange(gcmd_topic, gcmd_term, count_path_theme) %>%
+  distinct(gcmd_path, SNWG.Thematic.Area, .keep_all = TRUE) %>% 
+  filter(gcmd_variable !="") %>%
+  mutate(gcmd_term_variable = paste0(gcmd_term," > ", gcmd_variable)) 
+
+#Atmospheric Composition
+#Land Cover/Land Use Change
+#Earth Surface and Interior
+#Carbon Cycle and Ecosystems
+#Climate Variability and Change
+#Water and Energy Cycle
+#Weather and Atmosphere Dynamics
+#Infrastructure Products
+library(RColorBrewer)
+ggplot(snwg_gcmd[snwg_gcmd$SNWG.Thematic.Area=="Infrastructure Products",], aes(x = reorder(gcmd_variable, -count_path_theme), y = count_path_theme, fill = gcmd_topic)) +
+   geom_bar(position = "stack", stat = "identity") +
+   theme_classic()+
+   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.1)),
+         axis.line = element_line(size = 0.7),
+         legend.title = element_text(face = "bold", size = rel(1.1)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1)),
+         legend.position = c(0.76, 0.83),
+         panel.border = element_rect(color = "black", fill = NA, size = 0.7),
+         strip.background = element_rect(color = "black", size = 0.8, fill = "lightgrey"),
+         strip.text = element_text(size = 12, face = "bold")) +
+  labs(x = "", y = "", fill = "GCMD Topic") +
+  ylim(0,20) +
+  coord_flip() +
+  facet_grid(.~SNWG.Thematic.Area)
+
+
+snwg_gcmd_topic<- snwg %>%
+  filter(GCMD.Variable !="") %>%
+  group_by(SNWG.Thematic.Area, GCMD.Topic) %>%
+  summarize(count_path_theme = n()) %>%
+  as.data.frame() 
+#%>%
+  group_by(SNWG.Thematic.Area) %>%
+  summarize(count_theme = sum(count_path_theme)) %>% View()
+
+ggplot(snwg_gcmd_topic, aes(x = reorder(stringr::str_wrap(SNWG.Thematic.Area,15),-count_path_theme), y = count_path_theme, fill = GCMD.Topic)) +
+   geom_bar(position = "stack", stat = "identity") +
+   theme_classic()+
+   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.1)),
+         axis.line = element_line(size = 0.7),
+         legend.title = element_text(face = "bold", size = rel(1.1)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1)),
+         legend.position = c(0.88, 0.79),
+         panel.border = element_rect(color = "black", fill = NA, size = 0.7),
+         strip.background = element_rect(color = "black", size = 0.8, fill = "lightgrey"),
+         strip.text = element_text(size = 12, face = "bold")) +
+  labs(x = "SNWG Thematic Area", y = "# of GCMD Pathways", fill = "GCMD Topic") +
+  scale_fill_brewer(palette = "Set3") +
+  annotate("text", x = c(1,2,3,4,5,6,7,8), y = c(180,52,75,56,55,45,44,7), label = c("42 Needs","12 Needs","15 Needs","20 Needs","13 Needs","15 Needs","3 Needs","3 Needs"), size = 5, fontface = 2)
+```
+
+```{r}
+fwx_req_ids<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/FireWxDoc Req IDs.csv", header = TRUE)
+
+fwx_docs<- fwx_req_ids %>%
+  left_join(eordocs, by = c("Requirement.ID" = "requirement_id")) %>% 
+  select(-eor_document_id, - document_type) %>%
+  rename(requirement_id = Requirement.ID) %>% 
+  write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/fwx_docs.csv", row.names = FALSE)
+```
+
