@@ -1,0 +1,431 @@
+---
+title: "NESDIS Five-Year Product Plan"
+date: "September 2021"
+output:
+  word_document:
+    reference_docx: "C:/Users/Elizabeth.Gugliotti/Documents/code/input/word-styles-reference-5YearPlan.docx"
+    toc: true
+    number_sections: true
+    toc_depth: 4
+---
+```{r warning = FALSE, message = FALSE, echo = FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(scales)
+library(shiny)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(lubridate)
+library(flextable)
+library(pals)
+source("C:/Users/Elizabeth.Gugliotti/Documents/code/TPIO/FlyoutTables/FlyoutDataCleanup.R")
+```
+
+
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+#install_github("jeroenooms/jsonlite")
+eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+#systems
+
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+
+#environmental parameters
+r<-GET(paste0(eores,"get_reports_environmental_parameter_basic_information",sep=""))
+json_text<-content(r, as = "text")
+ep_json<-fromJSON(json_text)
+ep<-ep_json[['rptenvparambasic']]
+
+#se2ep
+r<-GET(paste0(eores,"get_reports_sensing_element_environmental_parameter_associations",sep=""))
+json_text<-content(r, as = "text")
+ep2se_json<-fromJSON(json_text)
+ep2se<-ep2se_json[['rptse2envparam']]
+
+#platform dates
+r<-GET(paste0(eores,"get_reports_platform_key_dates",sep=""))
+json_text<-content(r, as = "text")
+platform2dates_json<-fromJSON(json_text)
+platform2dates<-platform2dates_json[['rptpltfrmdates']]
+```
+
+```{r, warning = FALSE, echo = FALSE}
+system_joins <- systems %>%
+  left_join(platform2system, by = "system_id") %>%
+  left_join(platforms, by = "platform_id") %>%
+  left_join(platform2dates, by = "platform_id") %>%
+  left_join(se2platform, by = "platform_id") %>%
+  left_join(se, by = "sensing_element_id") %>%
+  left_join(ep2se, by = "sensing_element_id") %>%
+  left_join(ep, by = "environmental_parameter_id") %>% 
+  filter(grepl("Baseline Product", environmental_parameter_name)) %>% 
+  filter(date_type %in% c("Date End of Life (EOL)", "Date Launched", NA)) %>%
+  mutate(Orbit = ifelse(orbit_type == "Sun-synchronous", paste0(orbit_type," (",orbit_crossing_time," ",
+                        sun_side_equatorial_crossing_mode,")"),
+                        ifelse(orbit_type =="Geostationary", paste0(orbit_type," (",
+                               satellite_longitude_deg,")"),
+                               ifelse(orbit_type == "Drifting", paste0(orbit_type," (",
+                                      orbit_inclination_deg,")"), orbit_type)))) %>%
+  separate(environmental_parameter_name, c("Baseline_Product", "extra"), extra = "drop", sep = " Baseline Product") %>%
+  separate(sensing_element_name, c("sensing_element_name", "extra"), extra = "drop", sep = " Product") %>%
+  select(platform_name, platform_acronym, Orbit, date_type, date, sensing_element_name, sensing_element_acronym, Baseline_Product, geographic_coverage) %>%
+  distinct(platform_name, platform_acronym, sensing_element_name, sensing_element_acronym, Baseline_Product, date_type, geographic_coverage, .keep_all = TRUE) %>% 
+  pivot_wider(names_from = date_type, values_from = date) %>% select(-`NA`)
+```
+
+
+# Introduction
+
+
+
+# Planned Data Sources
+Table 2-2 NESDIS Data Sources
+```{r, warning = FALSE, echo = FALSE}
+# Table
+# | NOAA Satellite Data | Non-NOAA Satellite Data | Exploitation Data Sources |
+
+still_flying_NOAA<- flyout_clean %>%
+  pivot_wider(names_from = date_type, values_from = date) %>% 
+  select(system_name:`Date Launched`) %>%
+  filter(osc_baseline_observing_system_category == "Critical") %>%
+  mutate(`Date End of Life (EOL)` = as.numeric(year(`Date End of Life (EOL)`))) %>%
+  mutate(`Date Launched` = as.numeric(year(`Date Launched`))) %>% 
+#  filter(`Date End of Life (EOL)` >= year(Sys.Date())) %>%
+  filter(`Date Launched` <= 2027| is.na(`Date Launched`)) %>% 
+  filter(!platform_life_cycle_phase %in% c("Failed", "Retired")) %>% 
+  filter(owner_name %in% c("National Oceanic and Atmospheric Administration (NOAA)", NA)) %>% 
+  distinct(platform_name, .keep_all = TRUE)
+
+still_flying_non_NOAA<- flyout_clean %>%
+  pivot_wider(names_from = date_type, values_from = date) %>% 
+  select(system_name:`Date Launched`) %>%
+  filter(osc_baseline_observing_system_category == "Critical") %>%
+  mutate(`Date End of Life (EOL)` = as.numeric(year(`Date End of Life (EOL)`))) %>%
+  mutate(`Date Launched` = as.numeric(year(`Date Launched`))) %>% 
+#  filter(`Date End of Life (EOL)` >= year(Sys.Date())) %>%
+  filter(`Date Launched` <= 2027| is.na(`Date Launched`)) %>% 
+  filter(!platform_life_cycle_phase %in% c("Failed", "Retired")) %>% 
+  filter(!platform_acronym %in% still_flying_NOAA$platform_acronym) %>% 
+  distinct(platform_name, .keep_all = TRUE)
+
+
+still_flying_data_exp<- flyout_clean %>%
+  pivot_wider(names_from = date_type, values_from = date) %>% 
+  select(system_name:`Date Launched`) %>%
+  filter(system_intended_use == "Research") %>%
+  filter(!is.na(osc_baseline_observing_system_category)) %>%
+  mutate(`Date End of Life (EOL)` = as.numeric(year(`Date End of Life (EOL)`))) %>%
+  mutate(`Date Launched` = as.numeric(year(`Date Launched`))) %>% 
+#  filter(`Date End of Life (EOL)` >= year(Sys.Date())) %>%
+  filter(`Date Launched` <= 2027| is.na(`Date Launched`)) %>% 
+  filter(!platform_life_cycle_phase %in% c("Failed", "Retired")) %>% 
+  filter(!platform_acronym %in% still_flying_NOAA$platform_acronym) %>% 
+  distinct(platform_name, .keep_all = TRUE)
+```
+
+```{r, warning = FALSE, echo = FALSE}
+# Product Function
+by_product<- function(dat, product){
+  
+dat1 <- dat %>% 
+  dplyr::filter(Baseline_Product == product) %>% 
+  dplyr::distinct(platform_name, platform_acronym, sensing_element_name, sensing_element_acronym, Baseline_Product,`Date End of Life (EOL)`, `Date Launched`, .keep_all = TRUE) %>% 
+  dplyr::mutate(platform_sensor = paste0(platform_acronym," ", sensing_element_acronym)) %>%
+  dplyr::select(platform_sensor, Orbit, `Date End of Life (EOL)`, `Date Launched`) %>%
+  dplyr::filter(!is.na(`Date Launched`)) %>%
+  dplyr::filter(!is.na(`Date End of Life (EOL)`))%>%
+  dplyr::mutate(`Date Launched` = as.Date(`Date Launched`, "%m-%d-%Y")) %>%
+  dplyr::mutate(`Date End of Life (EOL)` = as.Date(`Date End of Life (EOL)`, "%m-%d-%Y"))
+
+M <- Map(seq, dat1$`Date Launched`, dat1$`Date End of Life (EOL)`, by = "year")
+
+dat2 <- data.frame(
+    platform_sensor = rep.int(dat1$platform_sensor, vapply(M, length, 1L)),
+    Orbit = rep.int(dat1$Orbit, vapply(M, length, 1L)),
+    Year = as.Date(do.call(c, M), format = "%m-%d-%Y"))
+
+dat_wide<- dat2 %>%
+    filter(Year >= "2019-01-01" & Year <= "2027-12-31") %>%
+    dplyr::mutate(flying = "YES") %>%
+    dplyr::arrange(Year) %>%
+    dplyr::mutate(Year = year(Year)) %>%
+    dplyr::mutate(Orbit = ifelse(is.na(Orbit), "TBD", Orbit)) %>%
+    pivot_wider(names_from = Year, values_from = flying) %>% 
+    as.data.frame() %>% 
+    dplyr::arrange(platform_sensor) %>%
+    dplyr::rename(` ` = platform_sensor)}
+```
+
+# Foundational
+
+## Imagery
+### Visible and IR Imagery
+#### LEO Imagery
+```{r, warning = FALSE, echo = FALSE}
+#Filter for when orbit == sun-synchronous
+```
+#### GEO Imagery
+```{r, warning = FALSE, echo = FALSE}
+#Filter for when orbit == geostationary
+```
+#### Arctic Composite
+```{r, warning = FALSE, echo = FALSE}
+#Filter for when geographic coverage == arctic
+```
+#### Global Mosaic of Vis/IR Imagery
+```{r, warning = FALSE, echo = FALSE}
+#????
+```
+#### CoastWatch/OceanWatch Imagery, Biology, Biogeochemistry
+```{r, warning = FALSE, echo = FALSE}
+#????
+```
+
+### Microwave Sounder Imagery
+#### Limb Corrected ATMS Imagery
+```{r, warning = FALSE, echo = FALSE}
+#????
+```
+
+### Microwave Imager Imagery - See Ocean Wind GAASP
+### Near Constant Contrast - See Visible and IR Imagery - LEO Imagery
+### SAR Imagery
+#### Synthetic Aperture Radar (SAR) Automated Ocean Products System (SAROPS)
+```{r, warning = FALSE, echo = FALSE}
+# Maybe filter by products that belong to SAR Sensors???
+```
+
+
+## Sensor Data
+### Microwave Radiometer Brightnesss Temperatures
+```{r, warning = FALSE, echo = FALSE}
+#Filter for sensor data & brightness temperature data?
+```
+
+### Microwave Radiometer Raw Data Records
+### Microwave Radiometer Temperature Data Records
+### Microwave Radiometer Sensor Data Records
+### Infrared Sounder Cloud-Cleared Radiances - See Atmospheric Temperature HEAPS
+### Infrared Sounder Radiances
+### Infrared Sounder Principal Components/Thinned Radiances
+### Infrared Sounder All-Sky Radiances
+### Infrared Sounder Clear-Sky Radiances
+### Infrared Sounder Raw Data Records
+### Infrared Sounder Sensor Data Records
+### Shortwave (UV/VIS) Sounder Raw Data Records
+### Shortwave (UV/VIS) Sounder Sensor Data Records
+### Shortwave (UV/VIS) Sounder Sensor Reflectance
+### Optical Imager Raw Data
+### Optical Imager Reflectance
+### Optical Imager Radiance
+### Optical Imager Brightness Temperature
+### Lightning Imager
+### Scatterometers
+### Radar and LIDAR Altimeter
+### Radio Occultation
+
+
+# Geophysical
+## Atmosphere
+### Atmospheric Composition and Air Quality
+#### Aerosol Optical Depth and Thickness
+```{r warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Aerosol Optical Depth/Thickness")
+yo<-yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+#### Aerosol Particle Properties
+```{r warning = FALSE, echo = FALSE, eval = FALSE}
+yo<-by_product(system_joins, "Aerosol Particle Properties")
+yo<-yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+#### Aerosol Detection
+```{r, warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Aerosol Detection")
+yo<- yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+#### Biomass Burning Emissions
+```{r, warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Biomass Burning Emissions")
+yo <- yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+#### Total Ozone
+```{r, warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Total Ozone")
+yo <- yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+#### Ozone Profile
+```{r, warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Ozone Profile")
+yo <- yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+#### Trace Gases Product Suite
+```{r, warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Trace Gases Product Suite")
+yo <- yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+
+
+### Atmospheric Water Vapor
+### Atmospheric Temperature
+### Clouds
+### Lightning
+### Precipitation
+### Radiation Budget
+### Tropical Cyclone Characteristics
+### Winds
+
+## Cryosphere
+### Lake and Sea Ice
+### Snow and Glacier
+
+## Land and Surface Hydrology
+### Fires
+### Floods
+### Surface Moisture
+### Surface Temperature
+### Vegetation
+
+## Oceans, Freshwater and Coasts
+### Surface Height
+#### Sea Surface Height
+```{r, warning = FALSE, echo = FALSE}
+yo<-by_product(system_joins, "Sea Surface Height")
+yo <- yo %>%
+    flextable()%>%
+    width(width = 1) %>%
+    color(j = 3:ncol(yo), color = "slateblue") %>%
+    bg(j = 3:ncol(yo), bg = "slateblue") %>%
+    bold(part = "header") %>%
+    bold(j = 1)%>% autofit()
+yo
+```
+
+
+### Bathymetry
+### Water Temperature and Salinity
+### Biology and Biogeochemistry
+### Water Pollution
+
+## Space Weather
+### Heliosphere
+### Ionosphere
+### Magnetosphere
+### Solar
+
+
+# Analytical
+## Weather
+### Automated Severe Weather Analyses and Nowcasts
+
+## Climate
+### Climate Data Records
+
+## Oceans, Freshwater and Coasts
+
+
+#### Appendix A: Budget Planning and Funding Strategy {.unnumbered}
+
+#### Appendix B: Acronyms {.unnumbered}
+
+#### Appendix C: Product Prioritization Methodology {.unnumbered}
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+

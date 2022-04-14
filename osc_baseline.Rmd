@@ -1,0 +1,89 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+baseline_critical<- read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/OSC Baseline Automation_Critical.csv", header = TRUE)
+
+baseline_SoR<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/OSC Baseline Automation_SoR.csv", header = TRUE)
+```
+
+```{r}
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+library(flextable)
+library(officer)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+
+#system POH
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+systems_poh_json<-fromJSON(json_text)
+systems_poh<-systems_poh_json[['rptsystemorgs']]
+systems_poh<- systems_poh %>%
+  select(system_id, poh_affiliation_type, level_1_short_name, level_2_short_name, level_3_short_name, level_4_short_name, level_5_short_name, level_6_short_name) %>%
+  filter(level_3_short_name == "NOAA")
+
+#system POC
+r<-GET(paste0(eores,"get_reports_observing_system_poc",sep=""))
+json_text<-content(r, as = "text")
+systems_poc_json<-fromJSON(json_text)
+systems_poc<-systems_poc_json[['rptsystempoc']]
+systems_poc<- systems_poc %>%
+  filter(poc_type == "COST") %>% 
+  select(system_id, poc_first_name, poc_last_name) %>%
+  rename(cost_poc_first_name = poc_first_name,
+         cost_poc_last_name = poc_last_name)
+```
+
+```{r}
+baseline_critical_join<- baseline_critical %>%
+  select(-level_2_short_name, -level_3_short_name, -Status.Comments, -poc_type) %>%
+  rename(technical_poc_line_office = level_4_short_name,
+         technical_poc_first_name = poc_first_name,
+         technical_poc_last_name = poc_last_name,
+         End_of_Life_Date = date) %>%
+  left_join(systems_poh[systems_poh$poh_affiliation_type=="OBSERVING SYSTEM OWNER",], by = "system_id") %>% 
+  distinct() %>% 
+  select(-level_1_short_name, -level_2_short_name, -level_3_short_name, -poh_affiliation_type, -date_type) %>%
+  rename(observing_system_owner_line_office = level_4_short_name) %>% 
+  left_join(systems_poc, by = "system_id") %>% 
+  select(1:7,observing_system_owner_line_office, level_5_short_name, level_6_short_name, technical_poc_line_office, 8:9, cost_poc_first_name, cost_poc_last_name, everything(), -system_id)
+  
+
+baseline_SoR_join<- baseline_SoR %>%
+  select(-level_2_short_name, -level_3_short_name, -Status.Comments, -poc_type) %>%
+  rename(technical_poc_line_office = level_4_short_name,
+         technical_poc_first_name = poc_first_name,
+         technical_poc_last_name = poc_last_name,
+         End_of_Life_Date = date) %>%
+  left_join(systems_poh[systems_poh$poh_affiliation_type=="OBSERVING SYSTEM OWNER",], by = "system_id") %>%
+  distinct() %>% 
+  select(-level_1_short_name, -level_2_short_name, -level_3_short_name, -poh_affiliation_type, -date_type) %>%
+  rename(observing_system_owner_line_office = level_4_short_name) %>% 
+  left_join(systems_poc, by = "system_id") %>% 
+  select(1:7,observing_system_owner_line_office, level_5_short_name, level_6_short_name, technical_poc_line_office, 8:9, cost_poc_first_name, cost_poc_last_name, everything(), -system_id)
+```
+
+```{r}
+library(writexl)
+sheets<- list("Critical"= baseline_critical_join, "SoR" = baseline_SoR_join)
+write_xlsx(sheets,"C:/Users/Elizabeth.Gugliotti/Documents/code/output/OSC_Baseline_Revised2.xlsx")
+```
+

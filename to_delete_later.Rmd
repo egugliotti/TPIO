@@ -1,0 +1,257 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+library(flextable)
+library(officer)
+library(writexl)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+```
+
+```{r}
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#systems poh
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+systems_poh_json<-fromJSON(json_text)
+systems_poh<-systems_poh_json[['rptsystemorgs']]
+
+#systems palma
+r<-GET(paste0(eores,"get_reports_observing_system_palma_id",sep=""))
+json_text<-content(r, as = "text")
+systems_palma_json<-fromJSON(json_text)
+systems_palma<-systems_palma_json[['rptsystempalmaid']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platform palma
+r<-GET(paste0(eores,"get_reports_platform_palma_id",sep=""))
+json_text<-content(r, as = "text")
+platforms_palma_json<-fromJSON(json_text)
+platforms_palma<-platforms_palma_json[['rptpltfrmpalmaid']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#Sensing Elements palma
+r<-GET(paste0(eores,"get_reports_sensing_element_palma_id",sep=""))
+json_text<-content(r, as = "text")
+se_palma_json<-fromJSON(json_text)
+se_palma<-se_palma_json[['rptsepalmaid']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+
+#environmental parameters
+r<-GET(paste0(eores,"get_reports_environmental_parameter_basic_information",sep=""))
+json_text<-content(r, as = "text")
+ep_json<-fromJSON(json_text)
+ep<-ep_json[['rptenvparambasic']]
+
+#environmental parameters palma
+r<-GET(paste0(eores,"get_reports_environmental_parameter_palma_id",sep=""))
+json_text<-content(r, as = "text")
+ep_palma_json<-fromJSON(json_text)
+ep_palma<-ep_palma_json[['rptenvparampalmaid']]
+
+#se2ep
+r<-GET(paste0(eores,"get_reports_sensing_element_environmental_parameter_associations",sep=""))
+json_text<-content(r, as = "text")
+ep2se_json<-fromJSON(json_text)
+ep2se<-ep2se_json[['rptse2envparam']]
+```
+
+```{r}
+system_joins_nosiaII <- systems %>%
+  left_join(systems_poh, by = "system_id") %>% 
+  filter(osc_baseline_observing_system_category== "Critical") %>%
+  filter(poh_affiliation_type == "OBSERVING SYSTEM OWNER") %>%
+  filter(level_3_short_name == "NOAA") %>% 
+  dplyr::rename(system_owner = level_3_short_name) %>% 
+  select(system_name, system_acronym, system_id, system_owner, system_life_cycle_phase) %>%
+  left_join(systems_palma, by = "system_id") %>%
+  left_join(platform2system, by = "system_id") %>% 
+  select(-system_id, -system_palma_id_id, -system_platform_id) %>%
+  left_join(platforms, by = "platform_id") %>% 
+  select(system_name:platform_acronym, platform_life_cycle_phase) %>% 
+  dplyr::rename(system_palma_id = palma_id) %>% 
+  left_join(platforms_palma, by = "platform_id") %>%
+  left_join(se2platform, by = "platform_id") %>%
+  select(-platform_id, -platform_palma_id_id, -platform_sensing_element_id) %>%
+  dplyr::rename(platform_palma_id = palma_id) %>%
+  left_join(se, by = "sensing_element_id") %>% 
+  select(system_name:sensing_element_acronym, sensing_element_life_cycle_phase) %>% 
+  left_join(se_palma, by = "sensing_element_id") %>% 
+  dplyr::rename(se_palma_id = palma_id) %>%
+  left_join(ep2se, by = "sensing_element_id") %>% 
+  select(-sensing_element_palma_id_id, -sensing_element_environmental_parameter_id) %>% 
+  left_join(ep, by = "environmental_parameter_id") %>% 
+  select(system_name:environmental_parameter_name) %>% 
+  left_join(ep_palma, by = "environmental_parameter_id") %>% 
+  select(-environmental_parameter_id, -environmental_parameter_palma_id_id, -sensing_element_id) %>%
+  dplyr::rename(ep_palma = palma_id) %>%
+  mutate(acro_palma_all = paste(system_acronym, systems_palma, platform_acronym, platforms_palma, sensing_element_acronym, se_palma, ep_palma, sep = ";")) %>%
+  distinct(acro_palma_all, .keep_all = TRUE)
+```
+
+
+```{r}
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eorestest2.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+#treename<-"NOSIA-II"
+treename<-"NOSIA-2-1"
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#systems poh
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+systems_poh_json<-fromJSON(json_text)
+systems_poh<-systems_poh_json[['rptsystemorgs']]
+
+#systems palma
+r<-GET(paste0(eores,"get_reports_observing_system_palma_id",sep=""))
+json_text<-content(r, as = "text")
+systems_palma_json<-fromJSON(json_text)
+systems_palma<-systems_palma_json[['rptsystempalmaid']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platform palma
+r<-GET(paste0(eores,"get_reports_platform_palma_id",sep=""))
+json_text<-content(r, as = "text")
+platforms_palma_json<-fromJSON(json_text)
+platforms_palma<-platforms_palma_json[['rptpltfrmpalmaid']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#Sensing Elements palma
+r<-GET(paste0(eores,"get_reports_sensing_element_palma_id",sep=""))
+json_text<-content(r, as = "text")
+se_palma_json<-fromJSON(json_text)
+se_palma<-se_palma_json[['rptsepalmaid']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+
+#environmental parameters
+r<-GET(paste0(eores,"get_reports_environmental_parameter_basic_information",sep=""))
+json_text<-content(r, as = "text")
+ep_json<-fromJSON(json_text)
+ep<-ep_json[['rptenvparambasic']]
+
+#environmental parameters palma
+r<-GET(paste0(eores,"get_reports_environmental_parameter_palma_id",sep=""))
+json_text<-content(r, as = "text")
+ep_palma_json<-fromJSON(json_text)
+ep_palma<-ep_palma_json[['rptenvparampalmaid']]
+
+#se2ep
+r<-GET(paste0(eores,"get_reports_sensing_element_environmental_parameter_associations",sep=""))
+json_text<-content(r, as = "text")
+ep2se_json<-fromJSON(json_text)
+ep2se<-ep2se_json[['rptse2envparam']]
+```
+
+```{r}
+system_joins_nosia21 <- systems %>%
+  left_join(systems_poh, by = "system_id") %>% 
+  filter(osc_baseline_observing_system_category== "Critical") %>%
+  filter(poh_affiliation_type == "OBSERVING SYSTEM OWNER") %>%
+  filter(level_3_short_name == "NOAA") %>% 
+  dplyr::rename(system_owner = level_3_short_name) %>% 
+  select(system_name, system_acronym, system_id, system_owner, system_life_cycle_phase) %>%
+  left_join(systems_palma, by = "system_id") %>%
+  left_join(platform2system, by = "system_id") %>% 
+  select(-system_id, -system_palma_id_id, -system_platform_id) %>%
+  left_join(platforms, by = "platform_id") %>% 
+  select(system_name:platform_acronym, platform_life_cycle_phase) %>% 
+  dplyr::rename(system_palma_id = palma_id) %>% 
+  left_join(platforms_palma, by = "platform_id") %>%
+  left_join(se2platform, by = "platform_id") %>%
+  select(-platform_id, -platform_palma_id_id, -platform_sensing_element_id) %>%
+  dplyr::rename(platform_palma_id = palma_id) %>%
+  left_join(se, by = "sensing_element_id") %>% 
+  select(system_name:sensing_element_acronym, sensing_element_life_cycle_phase) %>% 
+  left_join(se_palma, by = "sensing_element_id") %>% 
+  dplyr::rename(se_palma_id = palma_id) %>%
+  left_join(ep2se, by = "sensing_element_id") %>% 
+  select(-sensing_element_palma_id_id, -sensing_element_environmental_parameter_id) %>% 
+  left_join(ep, by = "environmental_parameter_id") %>% 
+  select(system_name:environmental_parameter_name) %>% 
+  left_join(ep_palma, by = "environmental_parameter_id") %>% 
+  select(-environmental_parameter_id, -environmental_parameter_palma_id_id, -sensing_element_id) %>%
+  dplyr::rename(ep_palma = palma_id) %>%
+  mutate(acro_palma_all = paste(system_acronym, systems_palma, platform_acronym, platforms_palma, sensing_element_acronym, se_palma, ep_palma, sep = ";")) %>%
+  distinct(acro_palma_all, .keep_all = TRUE)
+```
+
+```{r}
+sheets<- list("NOSIA-II"= system_joins_nosiaII, "NOSIA-2-1" = system_joins_nosia21)
+write_xlsx(sheets,"C:/Users/Elizabeth.Gugliotti/Documents/code/output/noaa_critical_palma.xlsx")
+```
+

@@ -1,0 +1,119 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+ 
+```{r}
+#Load packages and connect to EORES web services
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+library(officer)
+library(lubridate)
+library(writexl)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+
+#EOS Hierarchy
+r<-GET(paste0(eores,"get_reports_eos_hierarchy",sep="")) #the part in quotations can be obtained the last part in the column name "URL" here: https://docs.google.com/spreadsheets/d/1R29sSUPJKsOXJfZ1zea-SKuRv1AL9u_G/edit?usp=sharing&ouid=110683502772808059381&rtpof=true&sd=true
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rpteosh']] #use the Title in the link posted above
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#gcmd master
+r<-GET(paste0(eores,"get_reports_gcmd_master",sep=""))
+json_text<-content(r, as = "text")
+gcmd_json<-fromJSON(json_text)
+gcmd<-gcmd_json[['rptgcmdmaster']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+
+#environmental parameters
+r<-GET(paste0(eores,"get_reports_environmental_parameter_basic_information",sep=""))
+json_text<-content(r, as = "text")
+ep_json<-fromJSON(json_text)
+ep<-ep_json[['rptenvparambasic']]
+
+#se2ep
+r<-GET(paste0(eores,"get_reports_sensing_element_environmental_parameter_associations",sep=""))
+json_text<-content(r, as = "text")
+ep2se_json<-fromJSON(json_text)
+ep2se<-ep2se_json[['rptse2envparam']]
+```
+
+
+```{r}
+#Make joins
+system_joins <- systems %>%
+  filter(osc_baseline_observing_system_category == "Critical") %>% #filter to Critical systems
+  dplyr::rename(system_date_last_updated = date_last_updated) %>% #rename date_last_updated to system_date_last_updated
+  left_join(platform2system, by = "system_id") %>% 
+  left_join(platforms, by = "platform_id") %>%
+  dplyr::rename(platform_date_last_updated = date_last_updated) %>% #rename the new date_last_updated from the platform file to platform_date_last_updated
+  left_join(se2platform, by = "platform_id") %>%
+  left_join(se, by = "sensing_element_id") %>%
+  dplyr::rename(se_date_last_updated = date_last_updated) %>%  #rename the new date_last_updated from the se file to se_date_last_updated
+  left_join(ep2se, by = "sensing_element_id") %>%
+  left_join(ep, by = "environmental_parameter_id") %>% 
+  dplyr::rename(ep_date_last_updated = date_last_updated) %>%  #rename the new date_last_updated from the ep file to ep_date_last_updated
+  select(system_name, system_acronym, system_date_last_updated, platform_date_last_updated, se_date_last_updated, ep_date_last_updated) %>%
+  pivot_longer(
+    cols = contains("date_last_updated"),
+    names_to = "level",
+    values_to = "date_last_updated") %>% #pivot wide info in columns to long data in rows where each of the xxx_date_last_updated is now in a row
+  distinct() %>%  #filter distinct values
+  mutate(level = str_replace(level, "_date_last_updated", "")) %>% #want only the first part of the xxx_date_last_updated string such as system, platform, ep, or se
+  mutate(date_last_updated = as.Date(date_last_updated)) %>% #convert date to a date field in R
+  filter(date_last_updated >= as.Date("2022-03-01")) %>%  #change date that you want to view since last updated here
+  group_by(system_name, system_acronym, level) %>%
+  arrange(desc(date_last_updated)) %>% #order by descending date
+  slice(1) %>% #select the first row, i.e. with the most recent date for each of the systems and levels
+  as.data.frame() %>% 
+  arrange(system_acronym, match(level, c("system", "platform", "se", "ep"))) %>% #arrange by system, then platform, then se, then ep so it's in that order when pasted together below
+  group_by(system_name, system_acronym) %>%
+  summarize(`Date of Most Recent Update since 03/03/2022` = max(date_last_updated), #want the most recent date here
+            `Level(s) Updated` = paste(level, collapse = ", ")) %>% #paste together levels that were updated by a comma delimiter
+  dplyr::rename(`System Name` = system_name) %>%
+  dplyr::rename(`System Acronym` = system_acronym) %>%
+  write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/system_last_updated.csv", row.names = FALSE)
+```
+

@@ -15,14 +15,26 @@ library(ggpubr)
 library(RColorBrewer)
 library(treemap)
 library(tm)
-library(wordcloud)
+#library(wordcloud)
 library(reshape)
 # telemetry<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/Telemetry User Information Survey 21APR2021.csv", header = TRUE)
 telemetry_new<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/Telemetry User Information Survey 21APR2021_ALL.csv", header = TRUE)
+
+#light blue, dark blue, pink, tan, orange, red
+my_palette <- palette(c( "#048C8C", "#0F1B40", "#D95B7D", "#D9B18F", "#F29D35", "#D93814"))
+
+my_palette_lo <- c("#048C8C", "#0F1B40", "#D95B7D", "#D9B18F", "#F29D35", "#D93814")
+
+my_palette_lo_utility <- c("grey49", "#048C8C", "#0F1B40", "#D95B7D", "#D9B18F", "#F29D35", "#D93814")
+
+#dark blue = buoy tracking, pink = meteorology
+my_palette_msa <-c("#0F1B40", "#D95B7D", "#048C8C", "#D9B18F")
+
+my_palette_msa_utility <-c("grey49","#0F1B40", "#D95B7D", "#048C8C", "#D9B18F")
 ```
 
 
-Line Office & Office
+Line Office & Office #DONE
 ```{r}
 lo_office<- telemetry_new %>%
   select(line_office, office) %>%
@@ -36,9 +48,9 @@ treemap(lo_office,
         vSize = "lo_count",
         type = "index",
         bg.labels = c("transparent"),
-        palette = "Set2",
-        fontsize.label = c(18,12),
-        fontcolor.labels = c("white","black"),
+        palette = my_palette,
+        fontsize.label = c(20,14),
+        fontcolor.labels = c("white","white"),
         fontface.labels = c("bold","bold"),
         fontsize.title = c(20),
         border.lwds = c(5,2),
@@ -49,8 +61,9 @@ treemap(lo_office,
         title = "Offices that Submitted Telemetry Surveys")
 ```
 
+
 Question 4: Program (STILL WORKING)
-```{r}
+```{r, eval = FALSE}
 dataset=read.delim("https://raw.githubusercontent.com/TATABOX42/text-mining-in-r/master/dataset.txt", header = FALSE)
 
 dataset_labels <-read.delim("https://raw.githubusercontent.com/TATABOX42/text-mining-in-r/master/labels.txt", header = FALSE)
@@ -78,12 +91,12 @@ View(program_s)
 ```
 
 
-Question 5
+Question 5: Average # of PTTs #DONE
 ```{r}
 ####MSA####
 q5_msa<- telemetry_new %>%
   select(mission_area, X5..What.has.been.the.average...platforms.or.PTTs.routinely.requiring.telemetry..past.3.years.) %>%
-  rename(number_ptts = X5..What.has.been.the.average...platforms.or.PTTs.routinely.requiring.telemetry..past.3.years.) %>%
+  dplyr::rename(number_ptts = X5..What.has.been.the.average...platforms.or.PTTs.routinely.requiring.telemetry..past.3.years.) %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(number_ptts = as.numeric(number_ptts)) %>%
   filter(number_ptts != 0)
@@ -96,21 +109,22 @@ ggplot(q5_msa, aes(x=stringr::str_wrap(mission_area,20), y=number_ptts, fill=mis
 #  geom_violin(width = 1.3) + 
   geom_boxplot()+
   ylim(0,700) + 
-scale_fill_manual(values = c("#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D")) +
- theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  scale_fill_manual(values = my_palette_msa) +
+  theme_classic() +
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
         legend.position = "none") +
   labs(x = "Mission Area", y = "Average Number of PTTs", fill = "Mission Area") +
-  annotate("text", x = c(1,2,3,4), y = 700, label = c("","+2 outliers","+2 outliers",""), size = 4.7, fontface = 2) +
-  annotate("text", x = c(1,2,3,4), y = 675, label = c("mean = 52.0","mean = 2478.3","mean = 1968.3","mean = 30.0"), size = 5, fontface = 2)
+  ggplot2::annotate("text", x = c(1,2,3,4), y = 700, label = c("","+2 outliers","+2 outliers",""), size = 4.9, fontface = 2) +
+  ggplot2::annotate("text", x = c(1,2,3,4), y = 675, label = c("mean = 52.0","mean = 2478.3","mean = 1968.3","mean = 30.0"), size = 5.2, fontface = 2) +
+  scale_y_continuous(limits = c(0, 725), expand = c(0.01,0))
 
 ####LO####
 
 q5_lo<- telemetry_new %>%
   select(line_office, X5..What.has.been.the.average...platforms.or.PTTs.routinely.requiring.telemetry..past.3.years.) %>%
-  rename(number_ptts = X5..What.has.been.the.average...platforms.or.PTTs.routinely.requiring.telemetry..past.3.years.) %>%
+  dplyr::rename(number_ptts = X5..What.has.been.the.average...platforms.or.PTTs.routinely.requiring.telemetry..past.3.years.) %>%
   mutate(number_ptts = as.numeric(number_ptts)) %>%
   filter(number_ptts != 0)
 
@@ -118,22 +132,24 @@ q5_lo_mean<- q5_lo %>%
   group_by(line_office) %>%
   summarize(lo_mean = mean(number_ptts))
 
-ggplot(q5_lo, aes(x=stringr::str_wrap(line_office,20), y=number_ptts, fill=line_office)) +
+ggplot(q5_lo, aes(x=stringr::str_wrap(line_office, 10), y=number_ptts, fill=line_office)) +
 #  geom_violin(width = 1.2) + 
   geom_boxplot() +
   ylim(0,700) + 
-scale_fill_manual(values = c("#0D8F81", "#39AB7E","#6EC574", "#A9DC67", "#EDEF5D")) +
- theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  scale_fill_manual(values = my_palette_lo) +
+  theme_classic() +
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
         legend.position = "none") +
   labs(x = "Line Office", y = "Average Number of PTTs") +
-  annotate("text", x = c(1,2,3,4,5), y = 700, label = c("","","","+1 outlier","+1 outlier"), size = 4.7, fontface = 2) +
-  annotate("text", x = c(1,2,3,4,5), y = 675, label = c("mean = 27.0","mean = 353.0","mean = 214.8","mean = 475.0","mean = 8260.5"), size = 5, fontface = 2)
+  ggplot2::annotate("text", x = c(1,2,3,4,5), y = 700, label = c("","","","+1 outlier","+1 outlier"), size = 4.9, fontface = 2) +
+  ggplot2::annotate("text", x = c(1,2,3,4,5), y = 675, label = c("mean = 27.0","mean = 353.0","mean = 214.8","mean = 475.0","mean = 8260.5"), size = 5.2, fontface = 2)+
+  scale_y_continuous(limits = c(0, 725), expand = c(0.01,0))
 ```
 
-Question 6: Mission Area
+
+Question 6: Mission Area by Line Office #DONE
 ```{r}
 msa<- telemetry_new %>%
   select(line_office, mission_area) %>%
@@ -142,34 +158,57 @@ msa<- telemetry_new %>%
   summarize(msa_count = n()) %>%
   as.data.frame()
 
-ggplot(msa, aes(x = stringr::str_wrap(mission_area,25), y = msa_count, fill = line_office)) +
+ggplot(msa, aes(x = stringr::str_wrap(mission_area,20), y = msa_count, fill = line_office)) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
-   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-         axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+   theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
          axis.line = element_line(size = 1),
-         legend.title = element_text(face = "bold", size = rel(1.4)),
-         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.15, 0.87)) +
-  labs(x = "Mission Area", y = "Count", fill = "Line Office") + scale_fill_brewer(palette = "Set2")
+         legend.title = element_text(face = "bold", size = rel(1.6)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
+         legend.position = c(0.21, 0.88)) +
+  labs(x = "Mission Area", y = "Count", fill = "Line Office") + 
+  scale_fill_manual(values = my_palette_lo) +
+  scale_y_continuous(limits = c(0, 30), expand = c(0.01,0))
 ```
 
 
-Question 7: Environmental Variables
+Question 7: Environmental Variables #DONE
 ```{r}
 variables<-telemetry_new %>%
   select(line_office, mission_area, X7..Environmental.variables.collected..pick.as.many.as.appropriate.) %>%
-  rename(environmental_variables = X7..Environmental.variables.collected..pick.as.many.as.appropriate.) %>%
-  separate_rows(environmental_variables, sep = ";")
+  dplyr::rename(environmental_variables = X7..Environmental.variables.collected..pick.as.many.as.appropriate.) %>%
+  separate_rows(environmental_variables, sep = ";") %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "platform or PTT housekeeping (e.g., battery voltage)", "PTT housekeeping (battery voltage)", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "biotelemetry (wildlife range and behavior)", "biotelemetry (wildlife range & behavior)", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "river streamflow data for river stage height", "river stage height", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "Precipitation", "precipitation", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "Emergency communtiction", "emergency communication", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "Doppler Weather Radar ", "doppler weather radar", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "sea temperature (at depth / profiling)", "sea temperature (at depth)", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "algae / algal blooms", "algae/algal blooms", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "camera imagery or video", "camera imagery/video", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "pressure", "atmospheric pressure", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "animal depth", "biotelemetry (wildlife range & behavior)", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "acoustics", "biotelemetry (wildlife range & behavior)", environmental_variables)) %>%
+  mutate(environmental_variables = ifelse(environmental_variables == "pressure (depth)", "sea pressure (depth)", environmental_variables))
+  
 
+#### MSA ####
 variables_msa<-variables %>%
   select(mission_area, environmental_variables) %>%
+  mutate(environmental_variables = ifelse(environmental_variables=="temperature", "air temperature", environmental_variables)) %>%
   separate_rows(mission_area, sep = "; ") %>%
   group_by(mission_area, environmental_variables) %>%
   summarize(var_count = n()) %>%
+  as.data.frame() %>%
+  group_by(environmental_variables) %>%
+  summarize(ev_count = sum(var_count),
+            var_count = var_count,
+            mission_area = mission_area) %>%
   as.data.frame()
 
-ggplot(variables_msa, aes(x = reorder(environmental_variables, -var_count), y = var_count, fill = stringr::str_wrap(mission_area,37))) +
+ggplot(variables_msa, aes(x = reorder(environmental_variables, -ev_count), y = var_count, fill = stringr::str_wrap(mission_area,36))) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
    theme(axis.title = element_text(face = "bold", size = rel(1.4)),
@@ -177,18 +216,27 @@ ggplot(variables_msa, aes(x = reorder(environmental_variables, -var_count), y = 
          axis.line = element_line(size = 1),
          legend.title = element_text(face = "bold", size = rel(1.4)),
          legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.76, 0.9)) +
+         legend.position = c(0.7, 0.895)) +
   labs(x = "Environmental Variables", y = "Count", fill = "Mission Areas") +
-  coord_flip() + scale_fill_brewer(palette = "Set2")
+  coord_flip() + 
+  scale_fill_manual(values = my_palette_msa) +
+  scale_y_continuous(limits = c(0, 65), expand = c(0.01,0))
 
-
+#### LO ####
 variables_lo<-variables %>%
   select(line_office, environmental_variables) %>%
+  mutate(environmental_variables = ifelse(environmental_variables=="temperature", "air temperature", environmental_variables)) %>%
+  group_by(environmental_variables) %>%
   group_by(line_office, environmental_variables) %>%
   summarize(var_count = n()) %>%
+  as.data.frame() %>%
+  group_by(environmental_variables) %>%
+  summarize(ev_count = sum(var_count),
+            var_count = var_count,
+            line_office = line_office) %>%
   as.data.frame()
 
-ggplot(variables_lo, aes(x = reorder(environmental_variables, -var_count), y = var_count, fill = line_office)) +
+ggplot(variables_lo, aes(x = reorder(environmental_variables, -ev_count), y = var_count, fill = line_office)) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
    theme(axis.title = element_text(face = "bold", size = rel(1.4)),
@@ -196,17 +244,18 @@ ggplot(variables_lo, aes(x = reorder(environmental_variables, -var_count), y = v
          axis.line = element_line(size = 1),
          legend.title = element_text(face = "bold", size = rel(1.4)),
          legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.76, 0.9)) +
+         legend.position = c(0.745, 0.895)) +
   labs(x = "Environmental Variables", y = "Count", fill = "Line Office") +
-  coord_flip() + scale_fill_brewer(palette = "Set2")
+  coord_flip() + 
+  scale_fill_manual(values = my_palette_lo)+
+  scale_y_continuous(limits = c(0, 35), expand = c(0.01,0))
 ```
 
 
-
-Question 10: Platform Operating Environment
+Question 10: Platform Operating Environment Heatmap #DONE
 ```{r}
 pltfrm_env<- telemetry_new %>%
-  select(mission_area, line_office, X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Air., X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Ocean., X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Land., X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Cryosphere.) %>%
+  dplyr::select(mission_area, line_office, X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Air., X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Ocean., X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Land., X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Cryosphere.) %>%
   dplyr::rename(air = X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Air.) %>%
   dplyr::rename(ocean = X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Ocean.) %>%
   dplyr::rename(land = X10..Indicate.Platform.Operating.Environment..pick.one.row..air..ocean..land..cryosphere..and.pick.one.column..altitude.or.depth...Land.) %>%
@@ -215,9 +264,24 @@ pltfrm_env<- telemetry_new %>%
   mutate(ocean = replace(ocean, ocean == "", NA)) %>%
   mutate(land = replace(land, land == "", NA)) %>%
   mutate(cryosphere = replace(cryosphere, cryosphere == "", NA)) %>%
-  pivot_longer(air:cryosphere, names_to = "environment", values_to = "value") %>%
+  dplyr::rename(Air = air) %>%
+  dplyr::rename(Ocean = ocean) %>%
+  dplyr::rename(Land = land) %>%
+  dplyr::rename(Cryosphere = cryosphere) %>%
+  pivot_longer(Air:Cryosphere, names_to = "environment", values_to = "value") %>%
+  arrange(value) %>%
   separate_rows(value, sep = ";") %>%
-  drop_na(value)
+  drop_na(value) %>% 
+  mutate(value = ifelse(value == "surface", "Surface", value)) %>%
+  mutate(value = ifelse(value == "ocean: 4km-sfc", "Ocean: 4km-sfc", value)) %>%
+  mutate(value = ifelse(value == "ocean: 1km-sfc", "Ocean: 1km-sfc", value)) %>%
+  mutate(value = ifelse(value == "ocean: 10m-sfc", "Ocean: 10m-sfc", value)) %>%
+  mutate(value = ifelse(value == "ocean: 100m-sfc", "Ocean: 100m-sfc", value)) %>%
+  mutate(value = ifelse(value == "air: sfc-1km", "Air: sfc-1km", value)) %>%
+  mutate(value = ifelse(value == "air: sfc-15km", "Air: sfc-15km", value)) %>%
+  mutate(value = ifelse(value == "air: sfc-10m", "Air: sfc-10m", value)) %>%
+  mutate(value = ifelse(value == "air: sfc-100m", "Air: sfc-100m", value)) %>%
+  mutate(value = factor(value, levels = c("Ocean: 4km-sfc", "Ocean: 1km-sfc", "Ocean: 100m-sfc", "Ocean: 10m-sfc", "Surface","Air: sfc-10m", "Air: sfc-100m", "Air: sfc-1km", "Air: sfc-15km"), ordered = TRUE))
 
 env_sum <- pltfrm_env %>%
   dplyr::select(environment, value) %>%
@@ -228,13 +292,13 @@ env_sum <- pltfrm_env %>%
 
 ggplot(data = env_sum, aes(x = environment, y = value, fill = pcent_value)) +
   geom_tile() +
-  scale_fill_gradient(low = "white", high = "darkblue") +
+  scale_fill_gradient(low = "white", high = "#0F1B40") +
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Altitude", x = "Platform Operating Environment", fill = "% Selected") +
-  theme(axis.text = element_text(colour = "black", size = rel(1), face = "bold"),
-        axis.title = element_text(colour = "black", size = rel(1.4), face = "bold"),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(colour = "black", size = rel(1), face = "bold"),
+  theme(axis.text = element_text(colour = "black", size = rel(1.6), face = "bold"),
+        axis.title = element_text(colour = "black", size = rel(1.8), face = "bold"),
+        legend.title = element_text(face = "bold", size = rel(1.8)),
+        legend.text = element_text(colour = "black", size = rel(1.6), face = "bold"),
         panel.background = element_rect( colour = "white", fill = "white"),
         panel.border = element_rect(colour = "black", fill = "transparent", size = 1),
         axis.line = element_line(colour = "black", size = 1))
@@ -242,12 +306,11 @@ ggplot(data = env_sum, aes(x = environment, y = value, fill = pcent_value)) +
 ```
 
 
-
-Questions 22-34
+Questions 22-34 Data Wrangling #DONE
 ```{r}
 # Telemetry Attribute Importance Questions 22 - 34
 attr<- telemetry_new %>%
-  dplyr::select(line_office, mission_area, 40:52) %>%
+  dplyr::select(line_office, mission_area, 41:53) %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(across(everything(), ~ifelse(.=="","Not Applicable", as.character(.))))%>%
   pivot_longer(cols = starts_with("X"),
@@ -284,19 +347,20 @@ attr_sum_LO <- attr %>%
   group_by(line_office, question, rating) %>%
   dplyr::summarize(count = n()) %>%
   as.data.frame() %>%
-  mutate(rating_importance = as.numeric(rating)*count) %>%
+  dplyr::mutate(rating_importance = as.numeric(rating)*count) %>%
   group_by(line_office, question) %>%
   dplyr::summarize(question_importance = sum(rating_importance)) %>%
   as.data.frame() %>%
-  mutate(question_importance = as.numeric(question_importance))
+  dplyr::mutate(question_importance = as.numeric(question_importance)) 
 
 
 
 attr_MSA_wide<-spread(attr_sum_MSA, mission_area, question_importance)
 attr_LO_wide<-spread(attr_sum_LO, line_office, question_importance)
-```
 
-Q22-34: Heatmap by Mission Area
+attr_LO_wide %>% mutate(sum = rowSums(across(where(is.numeric)))) %>% View()
+```
+## Q22-34: Heatmap by Mission Area #DONE
 ```{r}
 attr_MSA_long <- attr_MSA_wide %>%
   as.data.frame() %>%
@@ -309,19 +373,18 @@ attr_MSA_long <- attr_MSA_long %>%
   mutate(`% Importance` = (Importance/total_imp)*100)
 
 
-attr_msa_heatmap <- ggplot(data = attr_MSA_long, aes(x = stringr::str_wrap(MSA,15), y = stringr::str_wrap(question, 35), fill = `% Importance`)) +
+attr_msa_heatmap <- ggplot(data = attr_MSA_long, aes(x = stringr::str_wrap(MSA,15), y = stringr::str_wrap(question, 31), fill = `% Importance`)) +
   geom_tile() +
-  scale_fill_gradient(low = "white", high = "darkblue") +
+  scale_fill_gradient(low = "white", high = "#0F1B40") +
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Attribute", x = "Mission Area") +
-  theme(axis.text = element_text(colour = "black", size = rel(1.1)),
-        axis.title = element_text(colour = "black", size = rel(1.2), face = "bold"),
-        legend.title = element_text(face = "bold", size = rel(1.2)),
-        legend.text = element_text(colour = "black", size = rel(1.1)))
+  theme(axis.text = element_text(colour = "black", size = rel(1.2)),
+        axis.title = element_text(colour = "black", size = rel(1.8), face = "bold"),
+        legend.title = element_text(face = "bold", size = rel(1.8)),
+        legend.text = element_text(colour = "black", size = rel(1.2)))
 attr_msa_heatmap
 ```
-
-Q22-34: Heatmap by LO
+## Q22-34: Heatmap by LO #DONE
 ```{r}
 attr_LO_long <- attr_LO_wide %>%
   as.data.frame() %>%
@@ -334,28 +397,26 @@ attr_LO_long <- attr_LO_long %>%
   mutate(`% Importance` = (Importance/total_imp)*100)
 
 
-attr_lo_heatmap <- ggplot(data = attr_LO_long, aes(x = stringr::str_wrap(LO, 6), y = stringr::str_wrap(question, 35), fill = `% Importance`)) +
+attr_lo_heatmap <- ggplot(data = attr_LO_long, aes(x = stringr::str_wrap(LO, 10), y = stringr::str_wrap(question, 31), fill = `% Importance`)) +
   geom_tile() +
-  scale_fill_gradient(low = "white", high = "darkblue") +
+# scale_fill_gradient(low = "white", high = "#048C8C") +
+   scale_fill_gradient(low = "white", high = "#0F1B40") +
+#  scale_fill_gradient(low = "white", high = "darkblue") + 
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Attribute", x = "Line Office") +
-  theme(axis.text = element_text(colour = "black", size = rel(1.1)),
-        axis.title = element_text(colour = "black", size = rel(1.2), face = "bold"),
-        legend.title = element_text(face = "bold", size = rel(1.2)),
-        legend.text = element_text(colour = "black", size = rel(1.1)))
+  theme(axis.text = element_text(colour = "black", size = rel(1.2)),
+        axis.title = element_text(colour = "black", size = rel(1.8), face = "bold"),
+        legend.title = element_text(face = "bold", size = rel(1.8)),
+        legend.text = element_text(colour = "black", size = rel(1.2)))
 attr_lo_heatmap
 ```
 
 
-
-
-
-
-Questions 30, 33, 34
+Questions 30, 33, 34 Data Wrangling #DONE
 ```{r}
-# Telemetry Attribute Importance Questions 36, 37, 38, 40
+# Telemetry Attribute Importance Questions 30, 33, 34
 attr2<- telemetry_new %>%
-  dplyr::select(line_office, mission_area, 48, 51, 52) %>%
+  dplyr::select(line_office, mission_area, 49, 52, 53) %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(across(everything(), ~ifelse(.=="","Not Applicable", as.character(.))))%>%
   pivot_longer(cols = starts_with("X"),
@@ -395,8 +456,7 @@ attr_sum_LO2 <- attr2 %>%
 attr_MSA_wide2<-spread(attr_sum_MSA2, mission_area, question_importance)
 attr_LO_wide2<-spread(attr_sum_LO2, line_office, question_importance)
 ```
-
-Questions 30, 33, 34: Heatmap by Mission Area
+## Questions 30, 33, 34: Heatmap by Mission Area
 ```{r}
 attr_MSA_long2 <- attr_MSA_wide2 %>%
   as.data.frame() %>%
@@ -411,7 +471,7 @@ attr_MSA_long2 <- attr_MSA_long2 %>%
 
 attr_msa_heatmap2 <- ggplot(data = attr_MSA_long2, aes(x = stringr::str_wrap(MSA,15), y = stringr::str_wrap(question, 35), fill = `% Importance`)) +
   geom_tile() +
-  scale_fill_gradient(low = "white", high = "darkblue") +
+  scale_fill_gradient(low = "white", high = "#0F1B40") +
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Attribute", x = "Mission Area") +
   theme(axis.text = element_text(colour = "black", size = rel(1.1)),
@@ -420,8 +480,7 @@ attr_msa_heatmap2 <- ggplot(data = attr_MSA_long2, aes(x = stringr::str_wrap(MSA
         legend.text = element_text(colour = "black", size = rel(1.1)))
 attr_msa_heatmap2
 ```
-
-Questions 30, 33, 34: Heatmap by LO
+## Questions 30, 33, 34: Heatmap by LO
 ```{r}
 attr_LO_long2 <- attr_LO_wide2 %>%
   as.data.frame() %>%
@@ -436,7 +495,7 @@ attr_LO_long2 <- attr_LO_long2 %>%
 
 attr_lo_heatmap2 <- ggplot(data = attr_LO_long2, aes(x = stringr::str_wrap(LO, 6), y = stringr::str_wrap(question, 35), fill = `% Importance`)) +
   geom_tile() +
-  scale_fill_gradient(low = "white", high = "darkblue") +
+  scale_fill_gradient(low = "white", high = "#0F1B40") +
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Attribute", x = "Line Office") +
   theme(axis.text = element_text(colour = "black", size = rel(1.1)),
@@ -447,29 +506,29 @@ attr_lo_heatmap2
 ```
 
 
-
 Questions 36, 37, 38, 40
 ```{r}
 # Telremetry Attribute Importance Questions 36, 37, 38, 40
 post_2027<- telemetry_new %>%
-  dplyr::select(line_office, mission_area, 54, 55, 56, 58) %>%
+  dplyr::select(line_office, mission_area, 55, 56, 57, 59) %>%
   separate_rows(mission_area, sep = "; ")
 
 ####Provider Plans by MSA####
 provider_plans_msa <- post_2027 %>%
   separate_rows(X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s., sep = ";") %>%
-  rename(provider = X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
+  dplyr::rename(provider = X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
   mutate(provider = replace(provider, provider == "Don't know which telemetry provider our program will use", "Don't know")) %>%
-    mutate(provider = replace(provider, provider == "Multiple telemetry providers to manage budget predictability and accessibility risk", "Multiple providers")) %>%
+  mutate(provider = replace(provider, provider == "Multiple telemetry providers to manage budget predictability and accessibility risk", "Multiple providers")) %>%
   group_by(mission_area, provider) %>%
   summarize(provider_count = n()) %>%
   as.data.frame()
+
 provider_plans_msa$provider <- factor(provider_plans_msa$provider, levels = c("Satellite - Iridium","Satellite - GOES DCP (GEO)","Satellite - CNES/CLS/Kineis system (LEO)","Satellite - Other","Terrestrial - Other (RF, Cell, Internet)", "Multiple providers", "Don't know"))
 
 
 provider_msa<-ggplot(provider_plans_msa, aes(fill = stringr::str_wrap(mission_area,40), y = provider_count, x = reorder(stringr::str_wrap(provider,15), provider_count))) +
   geom_bar(position = "stack", stat = "identity") +
-  scale_fill_manual(values = c("#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D")) +
+  scale_fill_manual(values = my_palette_msa) +
  theme_classic() +
   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
         axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
@@ -477,12 +536,13 @@ provider_msa<-ggplot(provider_plans_msa, aes(fill = stringr::str_wrap(mission_ar
         legend.title = element_text(face = "bold", size = rel(1.4)),
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.22, 0.86)) +
-  labs(x = "Provider", y = "Count", fill = "Mission Area")
+        legend.position = c(0.24, 0.885)) +
+  labs(x = "Provider", y = "Count", fill = "Mission Area") +
+  scale_y_continuous(limits = c(0, 40), expand = c(0.01,0))
 provider_msa
 
 
-ggballoonplot(provider_plans_msa, x = "provider", y = "mission_area", fill = "mission_area") + scale_fill_viridis_d(option = "C")
+#ggballoonplot(provider_plans_msa, x = "provider", y = "mission_area", fill = "mission_area") + scale_fill_viridis_d(option = "C")
 
 ####Provider Count Inclusion####
 #pro_count <- post_2027 %>%
@@ -498,7 +558,7 @@ ggballoonplot(provider_plans_msa, x = "provider", y = "mission_area", fill = "mi
 ####Provider Plans by LO####
 provider_plans_lo <- post_2027 %>%
   separate_rows(X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s., sep = ";") %>%
-  rename(provider = X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
+  dplyr::rename(provider = X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
   mutate(provider = replace(provider, provider == "Don't know which telemetry provider our program will use", "Don't know")) %>%
     mutate(provider = replace(provider, provider == "Multiple telemetry providers to manage budget predictability and accessibility risk", "Multiple providers")) %>%
   group_by(line_office, provider) %>%
@@ -525,7 +585,7 @@ ggballoonplot(provider_plans_lo, x= "provider", y = "line_office", fill = "line_
 
 ####Future Number Platforms####
 future_number_msa <- post_2027 %>%
-  rename(number_future_platforms = X37..In.2027.and.beyond..my.program.will.likely.require..pick.response..number.of.telemetry.subscriptions...platforms) %>%
+  dplyr::rename(number_future_platforms = X37..In.2027.and.beyond..my.program.will.likely.require..pick.response..number.of.telemetry.subscriptions...platforms) %>%
   mutate(number_future_platforms = replace(number_future_platforms, number_future_platforms =="Don't know how our program needs for telemetry subscriptions will change", "Don't know")) %>%
   mutate(number_future_platforms = replace(number_future_platforms, number_future_platforms =="more than 20% than current", ">20%")) %>%
   mutate(number_future_platforms = replace(number_future_platforms, number_future_platforms =="less than 20% than current", "<20%")) %>%
@@ -564,7 +624,7 @@ treemap(future_number_msa,
 
 
 future_number_lo <- post_2027 %>%
-  rename(number_future_platforms = X37..In.2027.and.beyond..my.program.will.likely.require..pick.response..number.of.telemetry.subscriptions...platforms) %>%
+  dplyr::rename(number_future_platforms = X37..In.2027.and.beyond..my.program.will.likely.require..pick.response..number.of.telemetry.subscriptions...platforms) %>%
   mutate(number_future_platforms = replace(number_future_platforms, number_future_platforms =="Don't know how our program needs for telemetry subscriptions will change", "Don't know")) %>%
   mutate(number_future_platforms = replace(number_future_platforms, number_future_platforms =="more than 20% than current", ">20%")) %>%
   mutate(number_future_platforms = replace(number_future_platforms, number_future_platforms =="less than 20% than current", "<20%")) %>%
@@ -590,7 +650,7 @@ treemap(future_number_lo,
 
 ####Future Bandwidth####
 future_bandwidth_msa <- post_2027 %>%
-  rename(future_bandwidth = X38..In.2027.and.beyond..my.program.s.telemetry.bandwidth.requirements.per.platform.will.be.....) %>%
+  dplyr::rename(future_bandwidth = X38..In.2027.and.beyond..my.program.s.telemetry.bandwidth.requirements.per.platform.will.be.....) %>%
   mutate(future_bandwidth = replace(future_bandwidth, future_bandwidth =="Don't know how our program needs for bandwidth will change", "Don't know")) %>%
   mutate(future_bandwidth = replace(future_bandwidth, future_bandwidth =="more than 20% than current", ">20%")) %>%
   mutate(future_bandwidth = replace(future_bandwidth, future_bandwidth =="less than 20% then current", "<20%")) %>%
@@ -615,7 +675,7 @@ treemap(future_bandwidth_msa,
         title = "Bandwidth Requirements in 2027 and Beyond")
 
 future_bandwidth_lo <- post_2027 %>%
-  rename(future_bandwidth = X38..In.2027.and.beyond..my.program.s.telemetry.bandwidth.requirements.per.platform.will.be.....) %>%
+  dplyr::rename(future_bandwidth = X38..In.2027.and.beyond..my.program.s.telemetry.bandwidth.requirements.per.platform.will.be.....) %>%
   mutate(future_bandwidth = replace(future_bandwidth, future_bandwidth =="Don't know how our program needs for bandwidth will change", "Don't know")) %>%
   mutate(future_bandwidth = replace(future_bandwidth, future_bandwidth =="more than 20% than current", ">20%")) %>%
   mutate(future_bandwidth = replace(future_bandwidth, future_bandwidth =="less than 20% then current", "<20%")) %>%
@@ -640,7 +700,7 @@ treemap(future_bandwidth_lo,
 ```
 
 
-11a
+11a Spatial Domain
 ```{r}
 spatial_domain<-telemetry_new %>%
   dplyr::select(line_office, mission_area, X11.a.Required.Operating.Spatial.Domain..pick.one.) %>%
@@ -663,7 +723,7 @@ ggplot(spatial_domain_msa, aes(x = reorder(geo_cov, geo_count), y = geo_count, f
          legend.title = element_text(face = "bold", size = rel(1.4)),
          legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
          legend.position = c(0.22, 0.9)) +
-  labs(x = "Spatial Domain", y = "Count", fill = "Mission Area") + scale_fill_brewer(palette = "Set2")
+  labs(x = "Spatial Domain", y = "Count", fill = "Mission Area") + scale_fill_manual(values = my_palette_msa)
 
 spatial_domain_lo <- spatial_domain %>%
   select(-mission_area) %>%
@@ -683,7 +743,7 @@ ggplot(spatial_domain_lo, aes(x = reorder(geo_cov, geo_count), y=geo_count, fill
   labs(x = "Spatial Domain", y = "Count", fill = "Line Office") + scale_fill_brewer(palette = "Set2")
 ```
 
-Q12
+Q12 Platform Mobility #DONE
 ```{r}
 pltfrm_mobility<-telemetry_new %>%
   dplyr::select(line_office, mission_area, X12..Indicate.platform.mobility) %>%
@@ -698,16 +758,18 @@ pltfrm_mobility_msa <- pltfrm_mobility %>%
   summarize(mobility_count = n()) %>%
   as.data.frame()
 
-ggplot(pltfrm_mobility_msa, aes(x = reorder(stringr::str_wrap(mobility,20), mobility_count), y = mobility_count, fill = stringr::str_wrap(mission_area,50))) +
+ggplot(pltfrm_mobility_msa, aes(x = reorder(stringr::str_wrap(mobility,20), mobility_count), y = mobility_count, fill = stringr::str_wrap(mission_area, 36))) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
-   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-         axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+   scale_y_continuous(limits = c(0, 40), expand = c(0.01,0)) +
+   theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
          axis.line = element_line(size = 1),
-         legend.title = element_text(face = "bold", size = rel(1.4)),
-         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.22, 0.9)) +
-  labs(x = "Platform Mobility", y = "Count", fill = "Mission Area") + scale_fill_brewer(palette = "Set2")
+         legend.title = element_text(face = "bold", size = rel(1.6)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
+         legend.position = c(0.245, 0.87)) +
+  labs(x = "Platform Mobility", y = "Count", fill = "Mission Area") + 
+  scale_fill_manual(values = my_palette_msa)
 
 
 pltfrm_mobility_lo <- pltfrm_mobility %>%
@@ -719,13 +781,15 @@ pltfrm_mobility_lo <- pltfrm_mobility %>%
 ggplot(pltfrm_mobility_lo, aes(x = reorder(stringr::str_wrap(mobility, 20), mobility_count), y=mobility_count, fill=line_office)) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
-   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-         axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+   scale_y_continuous(limits = c(0, 30), expand = c(0.01,0)) +
+   theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
          axis.line = element_line(size = 1),
-         legend.title = element_text(face = "bold", size = rel(1.4)),
-         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.16, 0.89)) +
-  labs(x = "Platform Mobility", y = "Count", fill = "Line Office") + scale_fill_brewer(palette = "Set2")
+         legend.title = element_text(face = "bold", size = rel(1.6)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
+         legend.position = c(0.205, 0.88)) +
+  labs(x = "Platform Mobility", y = "Count", fill = "Line Office") + 
+  scale_fill_manual(values = my_palette_lo)
 ```
 
 
@@ -733,7 +797,7 @@ Q8b(hor & vert), 8c, 13, 14, 16, 19, 20
 % Satisfied Utility Curves
 ```{r}
 utility<- telemetry_new %>%
-  select(line_office, mission_area, 13, 14,15, 29, 30,31, 32,33, 34, 36, 37, 38,39) %>%
+  select(line_office, mission_area, 13, 14, 15, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40) %>%
   mutate_all(na_if, "") %>%
   mutate_all(na_if, "Not applicable") %>%
   mutate_all(na_if, "not applicable") %>%
@@ -745,7 +809,8 @@ position_hor_all<- utility %>%
   dplyr::select(line_office, mission_area, X8.b.If.position.is.required..indicate.required.accuracy..horizontal.) %>%
   separate_rows(X8.b.If.position.is.required..indicate.required.accuracy..horizontal., sep = ";") %>%
   dplyr::rename(position_accuracy_horizontal = X8.b.If.position.is.required..indicate.required.accuracy..horizontal.) %>%
-  mutate(position_accuracy_horizontal = as.factor(position_accuracy_horizontal)) %>% na.omit() %>%
+  mutate(position_accuracy_horizontal = as.factor(position_accuracy_horizontal)) %>% 
+  na.omit() %>%
   group_by(position_accuracy_horizontal) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
   mutate(position_accuracy_horizontal = ordered(position_accuracy_horizontal, levels = c("0.1-1.0m","1-10m","10-50m","50-100m","100-200m","200-4000m"))) %>%
@@ -763,7 +828,8 @@ position_hor_all<- utility %>%
 position_hor_MSA<- utility %>%
   dplyr::select(line_office, mission_area, X8.b.If.position.is.required..indicate.required.accuracy..horizontal.) %>%
   dplyr::rename(position_accuracy_horizontal = X8.b.If.position.is.required..indicate.required.accuracy..horizontal.) %>%
-  separate_rows(mission_area, sep = "; ") %>%
+  separate_rows(mission_area, sep = "; ") %>% 
+  separate_rows(position_accuracy_horizontal, sep = ";") %>%
   mutate(position_accuracy_horizontal = as.factor(position_accuracy_horizontal)) %>%
   na.omit() %>%
   group_by(mission_area, position_accuracy_horizontal) %>%
@@ -777,24 +843,29 @@ position_hor_MSA<- utility %>%
             max = max(cum_count),
             accumulated = max - cum_diff,
             `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
+
 position_hor_all_msa <- position_hor_all %>% select(-line_office)
 position_hor_MSA<-rbind(position_hor_MSA, position_hor_all_msa)
 position_hor_MSA<-position_hor_MSA %>%
   group_by(mission_area) %>% mutate(lo_count = n()) %>% filter(lo_count>1)
+
+# need to create a palette that involves one more color for all!
 position_hor_MSA %>%
   ggplot(aes(x = position_accuracy_horizontal, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_msa_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.24, 0.86)) +
-  geom_hline(yintercept = 50, linetype = "dotted")+ scale_x_discrete(limits = rev)+ ylim(0,100) +
+        legend.position = c(0.28, 0.87)) +
+  geom_hline(yintercept = 50, linetype = "dotted")+ scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Horizontal Position Accuracy")
 
@@ -803,9 +874,12 @@ position_hor_MSA %>%
 position_hor_LO<- utility %>%
   select(line_office, mission_area, X8.b.If.position.is.required..indicate.required.accuracy..horizontal.) %>%
   dplyr::rename(position_accuracy_horizontal = X8.b.If.position.is.required..indicate.required.accuracy..horizontal.) %>%
-  mutate(position_accuracy_horizontal = as.factor(position_accuracy_horizontal)) %>%na.omit() %>%
+  separate_rows(position_accuracy_horizontal, sep = ";") %>%
+  mutate(position_accuracy_horizontal = as.factor(position_accuracy_horizontal)) %>% 
+  na.omit() %>%
   group_by(line_office, position_accuracy_horizontal) %>%
-  dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
+  dplyr::summarize(survey_count = n()) %>% 
+  as.data.frame()%>%
   mutate(position_accuracy_horizontal = ordered(position_accuracy_horizontal, levels = c("0.1-1.0m","1-10m","10-50m","50-100m","100-200m","200-4000m"))) %>%
   arrange(position_accuracy_horizontal) %>%
   group_by(line_office) %>%
@@ -819,30 +893,34 @@ position_hor_all_lo <- position_hor_all %>% select(-mission_area)
 position_hor_LO<-rbind(position_hor_LO, position_hor_all_lo)
 position_hor_LO<-position_hor_LO %>%
   group_by(line_office) %>% mutate(lo_count = n()) %>% filter(lo_count>1)
+
+
 position_hor_LO %>%
   ggplot(aes(x = position_accuracy_horizontal, y = `% Satisfied`, group = line_office, color = line_office, linetype = line_office)) + 
   geom_line(size = 1.2)+
   geom_hline(yintercept = 50, linetype = "dotted")+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid","solid"))+
-  scale_color_manual(values = c("#245668","#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 35)) +
+  scale_color_manual(values = my_palette_lo_utility, labels = function(x) str_wrap(x, width = 35)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1,'lines'),
-        legend.position = c(0.18, 0.89)) +
-  scale_x_discrete(limits = rev)+ ylim(0,100) + guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
+        legend.position = c(0.2, 0.90)) +
+  scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
+  guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Horizontal Position Accuracy")
 
-#carto_pal(7, "ag_GrnYl")
 
 ####8b Utility Position Accuracy: Vertical####
 position_vert_all<- utility %>%
   select(line_office, mission_area, X8.b.If.position.is.required..indicate.required.accuracy..vertical.) %>%
   separate_rows(X8.b.If.position.is.required..indicate.required.accuracy..vertical., sep = ";") %>%
   dplyr::rename(position_accuracy_vertical = X8.b.If.position.is.required..indicate.required.accuracy..vertical.) %>%
+  separate_rows(position_accuracy_vertical, sep = ";") %>%
   mutate(position_accuracy_vertical = as.factor(position_accuracy_vertical)) %>%
   na.omit() %>%
   group_by(position_accuracy_vertical) %>%
@@ -864,6 +942,7 @@ position_vert_MSA<- utility %>%
   select(line_office, mission_area, X8.b.If.position.is.required..indicate.required.accuracy..vertical.) %>%
   separate_rows(mission_area, sep = "; ") %>%
   dplyr::rename(position_accuracy_vertical = X8.b.If.position.is.required..indicate.required.accuracy..vertical.) %>%
+  separate_rows(position_accuracy_vertical, sep = ";") %>%
   mutate(position_accuracy_vertical = as.factor(position_accuracy_vertical)) %>%
   na.omit() %>%
   group_by(mission_area, position_accuracy_vertical) %>%
@@ -877,24 +956,28 @@ position_vert_MSA<- utility %>%
             max = max(cum_count),
             accumulated = max - cum_diff,
             `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 position_vert_all_msa <- position_vert_all %>% select(-line_office)
 position_vert_MSA<-rbind(position_vert_MSA, position_vert_all_msa)
 position_vert_MSA<-position_vert_MSA %>%
   group_by(mission_area) %>% mutate(ma_count = n()) %>% filter(ma_count>1)
+
 position_vert_MSA %>%
   ggplot(aes(x = position_accuracy_vertical, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_msa_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.24, 0.86)) +
-  scale_x_discrete(limits = rev)+ ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted")+
+        legend.position = c(0.27, 0.865)) +
+  scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +
+  geom_hline(yintercept = 50, linetype = "dotted")+
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Vertical Position Accuracy")
 
@@ -903,6 +986,7 @@ position_vert_MSA %>%
 position_vert_LO<- utility %>%
   select(line_office, mission_area, X8.b.If.position.is.required..indicate.required.accuracy..vertical.) %>%
   dplyr::rename(position_accuracy_vertical = X8.b.If.position.is.required..indicate.required.accuracy..vertical.) %>%
+  separate_rows(position_accuracy_vertical, sep = ";") %>%
   mutate(position_accuracy_vertical = as.factor(position_accuracy_vertical)) %>%
   na.omit() %>%
   group_by(line_office, position_accuracy_vertical) %>%
@@ -916,24 +1000,28 @@ position_vert_LO<- utility %>%
             max = max(cum_count),
             accumulated = max - cum_diff,
             `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 position_vert_all_lo <- position_vert_all %>% select(-mission_area)
 position_vert_LO<-rbind(position_vert_LO, position_vert_all_lo)
 position_vert_LO<-position_vert_LO %>%
   group_by(line_office) %>% mutate(lo_count = n()) %>% filter(lo_count>1)
+
 position_vert_LO %>%
   ggplot(aes(x = position_accuracy_vertical, y = `% Satisfied`, group = line_office, color = line_office, linetype = line_office)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid","solid"))+
-  scale_color_manual(values = c("#245668","#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 35)) +
+  scale_color_manual(values = my_palette_lo_utility, labels = function(x) str_wrap(x, width = 35)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1,'lines'),
-        legend.position = c(0.19, 0.89)) +
-  scale_x_discrete(limits = rev)+ ylim(0,100) + guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
+        legend.position = c(0.2, 0.905)) +
+  scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
+  guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Vertical Position Accuracy")
 
 
@@ -942,6 +1030,7 @@ position_vert_LO %>%
 position_max_all<- utility %>%
   select(line_office, mission_area, X8.c.If.position.required..what.is.the.maximum.time.to.determine.position.required.) %>%
   dplyr::rename(position_max_time = X8.c.If.position.required..what.is.the.maximum.time.to.determine.position.required.) %>%
+  separate_rows(position_max_time, sep = ";") %>%
   mutate(position_max_time = replace(position_max_time, position_max_time =="greater than 75 seconds permissible", "75+ seconds")) %>%
   mutate(position_max_time = as.factor(position_max_time)) %>%
   na.omit() %>%
@@ -966,6 +1055,7 @@ position_max_MSA<- utility %>%
   separate_rows(mission_area, sep = "; ") %>%
   dplyr::rename(position_max_time = X8.c.If.position.required..what.is.the.maximum.time.to.determine.position.required.) %>%
   mutate(position_max_time = replace(position_max_time, position_max_time =="greater than 75 seconds permissible", "75+ seconds")) %>%
+  separate_rows(position_max_time, sep = ";") %>%
   mutate(position_max_time = as.factor(position_max_time)) %>%
   na.omit() %>%
   group_by(mission_area, position_max_time) %>%
@@ -988,20 +1078,23 @@ position_max_all_msa <- position_max_all %>% select(-line_office)
 position_max_MSA<-rbind(position_max_MSA, position_max_all_msa)
 position_max_MSA<-position_max_MSA %>%
   group_by(mission_area) %>% mutate(ma_count = n()) %>% filter(ma_count>1)
+
 position_max_MSA %>%
   ggplot(aes(x = position_max_time, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_msa_utility, labels = function(x) str_wrap(x, width = 36))+
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.22, 0.87)) +
-  ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted")+scale_x_discrete(limits = rev(levels(position_max_MSA$position_max_time))) +
+        legend.position = c(0.77, 0.17)) +
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
+  geom_hline(yintercept = 50, linetype = "dotted") + 
+  scale_x_discrete(limits = rev(levels(position_max_MSA$position_max_time))) +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Maximum Time to Determine Position")
 
@@ -1011,6 +1104,7 @@ position_max_lo<- utility %>%
   select(line_office, X8.c.If.position.required..what.is.the.maximum.time.to.determine.position.required.) %>%
   dplyr::rename(position_max_time = X8.c.If.position.required..what.is.the.maximum.time.to.determine.position.required.) %>%
   mutate(position_max_time = replace(position_max_time, position_max_time =="greater than 75 seconds permissible", "75+ seconds")) %>%
+  separate_rows(position_max_time, sep = ";") %>%
   mutate(position_max_time = as.factor(position_max_time)) %>%
   na.omit() %>%
   group_by(line_office, position_max_time) %>%
@@ -1030,24 +1124,26 @@ position_max_lo<- utility %>%
             max = max(cum_count),
             accumulated = max - cum_diff,
             `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 position_max_all_lo <- position_max_all %>% select(-mission_area)
 position_max_lo<-rbind(position_max_lo, position_max_all_lo)
 position_max_lo<-position_max_lo %>%
   group_by(line_office) %>% mutate(lo_count = n()) %>% filter(lo_count>1)
+
 position_max_lo %>%
   ggplot(aes(x = position_max_time, y = `% Satisfied`, group = line_office, color = line_office, linetype = line_office)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_lo_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.18, 0.88)) +
-  ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted")+scale_x_discrete(limits = rev(levels(position_max_lo$position_max_time))) +
+        legend.position = c(0.81, 0.15)) +
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + geom_hline(yintercept = 50, linetype = "dotted")+scale_x_discrete(limits = rev(levels(position_max_lo$position_max_time))) +
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Maximum Time to Determine Position")
 
@@ -1055,7 +1151,9 @@ position_max_lo %>%
 ops_duration_all<- utility %>%
   select(line_office, mission_area, X13..Indicate.Required.Platform.Lifecycle..operating.duration.) %>%
   dplyr::rename(ops_duration = X13..Indicate.Required.Platform.Lifecycle..operating.duration.) %>%
-  mutate(ops_duration = as.factor(ops_duration)) %>% na.omit() %>%
+  separate_rows(ops_duration, sep = ";") %>%
+  mutate(ops_duration = as.factor(ops_duration)) %>% 
+  na.omit() %>%
   group_by(ops_duration) %>%
   dplyr::summarize(survey_count = n()) %>%
   as.data.frame()%>%
@@ -1074,6 +1172,7 @@ ops_duration_all<- utility %>%
 ops_duration_MSA<- utility %>%
   select(line_office, mission_area, X13..Indicate.Required.Platform.Lifecycle..operating.duration.) %>%
   dplyr::rename(ops_duration = X13..Indicate.Required.Platform.Lifecycle..operating.duration.) %>%
+  separate_rows(ops_duration, sep = ";") %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(ops_duration = as.factor(ops_duration)) %>% na.omit() %>%
   group_by(mission_area, ops_duration) %>%
@@ -1087,24 +1186,28 @@ ops_duration_MSA<- utility %>%
          max = max(cum_count),
          accumulated = max - cum_diff,
          `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 ops_duration_all_msa <- ops_duration_all %>% select(-line_office)
 ops_duration_MSA<-rbind(ops_duration_MSA, ops_duration_all_msa)
 ops_duration_MSA<-ops_duration_MSA %>%
   group_by(mission_area) %>% mutate(lo_count = n()) %>% filter(lo_count>1)
+
 ops_duration_MSA %>%
   ggplot(aes(x = ops_duration, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_msa_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.5)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.8, 0.13)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted")+
+        legend.position = c(0.74, 0.16)) +
+  scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
+  geom_hline(yintercept = 50, linetype = "dotted")+
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Lifecycle Operating Duration")
 
@@ -1112,6 +1215,7 @@ ops_duration_MSA %>%
 ops_duration_LO<- utility %>%
   select(line_office, mission_area, X13..Indicate.Required.Platform.Lifecycle..operating.duration.) %>%
   dplyr::rename(ops_duration = X13..Indicate.Required.Platform.Lifecycle..operating.duration.) %>%
+  separate_rows(ops_duration, sep = ";") %>%
   mutate(ops_duration = as.factor(ops_duration)) %>%na.omit() %>%
   group_by(line_office, ops_duration) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
@@ -1127,24 +1231,28 @@ ops_duration_LO<- utility %>%
          max = max(cum_count),
          accumulated = max - cum_diff,
          `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 ops_duration_all_lo <- ops_duration_all %>% select(-mission_area)
 ops_duration_LO<-rbind(ops_duration_LO, ops_duration_all_lo)
 ops_duration_LO<-ops_duration_LO %>%
   group_by(line_office) %>% mutate(lo_count = n()) %>% filter(lo_count>1)
+
 ops_duration_LO %>%
   ggplot(aes(x = ops_duration, y = `% Satisfied`, group = line_office, color = line_office, linetype = line_office)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid","solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#6EC574","#A9DC67"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_lo_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.5)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.83, 0.12)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted") +
+        legend.position = c(0.82, 0.13)) +
+  scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
+  geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Lifecycle Operating Duration")
 
@@ -1152,6 +1260,7 @@ ops_duration_LO %>%
 power_use_all<- utility %>%
   select(line_office, mission_area, X14..Indicate.Requirement.for.Platform.Transmitting.Terminal..PTT..Power.Consumption..Watts.) %>%
   dplyr::rename(power_use = X14..Indicate.Requirement.for.Platform.Transmitting.Terminal..PTT..Power.Consumption..Watts.) %>%
+  separate_rows(power_use, sep = ";") %>%
   mutate(power_use = as.factor(power_use)) %>% na.omit() %>%
   group_by(power_use) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
@@ -1167,11 +1276,12 @@ power_use_all<- utility %>%
          `% Satisfied` = (accumulated/max)*100) %>%
   as.data.frame()
 
-#
+
 # MSA
 power_use_MSA<- utility %>%
  select(line_office, mission_area, X14..Indicate.Requirement.for.Platform.Transmitting.Terminal..PTT..Power.Consumption..Watts.) %>%
   dplyr::rename(power_use = X14..Indicate.Requirement.for.Platform.Transmitting.Terminal..PTT..Power.Consumption..Watts.) %>%
+  separate_rows(power_use, sep = ";") %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(power_use = as.factor(power_use)) %>% na.omit() %>%
   group_by(mission_area, power_use) %>%
@@ -1187,6 +1297,7 @@ power_use_MSA<- utility %>%
          max = max(cum_count),
          accumulated = max - cum_diff,
          `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 power_use_all_msa <- power_use_all %>% select(-line_office)
 power_use_MSA<-rbind(power_use_MSA, power_use_all_msa)
 power_use_MSA<-power_use_MSA %>%
@@ -1195,17 +1306,17 @@ power_use_MSA %>%
   ggplot(aes(x = power_use, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) +
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_msa_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.8, 0.15)) +
+        legend.position = c(0.76, 0.15)) +
   scale_x_discrete(limits = rev) +
-  ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted") +
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +  geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "PTT Power Consumption (Watts)")
 
@@ -1213,11 +1324,13 @@ power_use_MSA %>%
 power_use_LO<- utility %>%
  select(line_office, mission_area, X14..Indicate.Requirement.for.Platform.Transmitting.Terminal..PTT..Power.Consumption..Watts.) %>%
   dplyr::rename(power_use = X14..Indicate.Requirement.for.Platform.Transmitting.Terminal..PTT..Power.Consumption..Watts.) %>%
+  separate_rows(power_use, sep = ";") %>%
   mutate(power_use = as.factor(power_use)) %>% na.omit() %>%
   group_by(line_office, power_use) %>%
-  dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
+  dplyr::summarize(survey_count = n()) %>% as.data.frame() %>% 
   add_row(line_office = "OAR & Non-NOAA (research)", power_use = "5-20 Watts", survey_count = 0) %>%
   add_row(line_office = "NMFS", power_use = "5-20 Watts", survey_count = 0) %>%
+  add_row(line_office = "NOS", power_use = "0.1-1 Watt", survey_count = 0) %>%
   mutate(power_use = ordered(power_use, levels = c("5-20 Watts","2-5 Watts","1-2 Watts","0.1-1 Watt"))) %>%
   arrange(power_use) %>%
   group_by(line_office) %>%
@@ -1227,6 +1340,7 @@ power_use_LO<- utility %>%
          max = max(cum_count),
          accumulated = max - cum_diff,
          `% Satisfied` = (accumulated/max)*100) %>% as.data.frame()
+
 power_use_all_lo <- power_use_all %>% select(-mission_area)
 power_use_LO<-rbind(power_use_LO, power_use_all_lo)
 power_use_LO<-power_use_LO %>%
@@ -1235,16 +1349,16 @@ power_use_LO %>%
   ggplot(aes(x = power_use, y = `% Satisfied`, group = line_office, color = line_office, linetype = line_office)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = my_palette_lo_utility, labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.1)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.85, 0.15)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted") +
+  scale_x_discrete(limits = rev) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +  geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "PTT Power Consumption (Watts)")
 
@@ -1252,6 +1366,7 @@ power_use_LO %>%
 mass_all<- utility %>%
   select(line_office, mission_area, X16..Maximum.Platform.Total.Mass.Requirement) %>%
   dplyr::rename(mass = X16..Maximum.Platform.Total.Mass.Requirement) %>%
+  separate_rows(mass, sep = ";") %>%
   mutate(mass = as.factor(mass)) %>% na.omit() %>%
   group_by(mass) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
@@ -1271,6 +1386,7 @@ mass_all<- utility %>%
 mass_MSA<- utility %>%
   select(line_office, mission_area, X16..Maximum.Platform.Total.Mass.Requirement) %>%
   dplyr::rename(mass = X16..Maximum.Platform.Total.Mass.Requirement) %>%
+  separate_rows(mass, sep = ";") %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(mass = as.factor(mass)) %>% na.omit() %>%
   group_by(mission_area, mass) %>%
@@ -1293,16 +1409,16 @@ mass_MSA %>%
   ggplot(aes(x = mass, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81","#A9DC67","#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = c("grey49","#0F1B40", "#048C8C", "#D9B18F"), labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.77, 0.13)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted") +
+        legend.position = c(0.76, 0.13)) +
+  scale_x_discrete(limits = rev) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +  geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Maximum Platform Total Mass")
 
@@ -1310,6 +1426,7 @@ mass_MSA %>%
 mass_LO<- utility %>%
   select(line_office, mission_area, X16..Maximum.Platform.Total.Mass.Requirement) %>%
   dplyr::rename(mass = X16..Maximum.Platform.Total.Mass.Requirement) %>%
+  separate_rows(mass, sep = ";") %>%
   mutate(mass = as.factor(mass)) %>% na.omit() %>%
   group_by(line_office, mass) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
@@ -1331,16 +1448,16 @@ mass_LO %>%
   ggplot(aes(x = mass, y = `% Satisfied`, group = line_office, color = line_office, linetype = line_office)) +
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81","#A9DC67"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = c("grey49", "#048C8C", "#D9B18F"), labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.83, 0.09)) +
-  scale_x_discrete(limits = rev) + ylim(0,100)+ geom_hline(yintercept = 50, linetype = "dotted") +
+        legend.position = c(0.82, 0.09)) +
+  scale_x_discrete(limits = rev) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +  geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Maximum Platform Total Mass")
 
@@ -1348,11 +1465,14 @@ mass_LO %>%
 bandwidth_all<- utility %>%
   select(line_office, mission_area, X18..Minimum.Throughput.or.Bandwidth.Required) %>%
   dplyr::rename(bandwidth = X18..Minimum.Throughput.or.Bandwidth.Required) %>%
+  separate_rows(bandwidth, sep = ";") %>%
+  mutate(bandwidth = ifelse(bandwidth == ">5000 kps (including G3, G4, G5)", ">5000 kps", bandwidth)) %>% 
   mutate(bandwidth = as.factor(bandwidth)) %>%
   na.omit() %>%
   group_by(bandwidth) %>%
-  dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
-  mutate(bandwidth = ordered(bandwidth, levels = c("480 bps","1200 bps","2400 bps","9.6 kps","128 kps","1200 kps","2400 kps","5000 kps",">5000 kps (including G3, G4, G5)"))) %>%
+  dplyr::summarize(survey_count = n()) %>%
+  as.data.frame() %>%
+  mutate(bandwidth = ordered(bandwidth, levels = c(">5000 kps", "5000 kps", "2400 kps","1200 kps","128 kps","9.6 kps","2400 bps","1200 bps","480 bps"))) %>%
   arrange(bandwidth) %>%
   dplyr::summarize(mission_area = "All",
          line_office = "All",
@@ -1367,12 +1487,16 @@ bandwidth_all<- utility %>%
 bandwidth_MSA<- utility %>%
   select(line_office, mission_area, X18..Minimum.Throughput.or.Bandwidth.Required) %>%
   dplyr::rename(bandwidth = X18..Minimum.Throughput.or.Bandwidth.Required) %>%
-  separate_rows(mission_area, sep = "; ") %>%
+  separate_rows(bandwidth, sep = ";") %>%
+  separate_rows(mission_area, sep = "; ") %>% 
+  mutate(bandwidth = ifelse(bandwidth == ">5000 kps (including G3, G4, G5)", ">5000 kps", bandwidth)) %>% 
   mutate(bandwidth = as.factor(bandwidth)) %>%
   na.omit() %>%
   group_by(mission_area, bandwidth) %>%
-  dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
-  mutate(bandwidth = ordered(bandwidth, levels = c("480 bps","1200 bps","2400 bps","9.6 kps","128 kps","1200 kps","2400 kps","5000 kps",">5000 kps (including G3, G4, G5)"))) %>%
+  dplyr::summarize(survey_count = n()) %>%
+  as.data.frame() %>% 
+  add_row(mission_area = "Wildlife Tracking", bandwidth = ">5000 kps", survey_count = 0) %>%
+  mutate(bandwidth = ordered(bandwidth, levels = c(">5000 kps", "5000 kps", "2400 kps","1200 kps","128 kps","9.6 kps","2400 bps","1200 bps","480 bps"))) %>%
   arrange(bandwidth) %>%
   group_by(mission_area) %>%
   dplyr::summarize(bandwidth = bandwidth,
@@ -1389,16 +1513,16 @@ bandwidth_MSA %>%
   ggplot(aes(x =  bandwidth, y = `% Satisfied`, group = mission_area, color = mission_area, linetype = mission_area)) + 
   geom_line(size = 1.2)+
   scale_linetype_manual(values = c("dashed", "solid", "solid", "solid", "solid"))+
-  scale_color_manual(values = c("#245668", "#0D8F81", "#39AB7E", "#A9DC67", "#EDEF5D"), labels = function(x) str_wrap(x, width = 40)) +
+  scale_color_manual(values = c("grey49","#0F1B40", "#D95B7D", "#048C8C", "#D9B18F"), labels = function(x) str_wrap(x, width = 40)) +
   theme_classic() +
-  theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-        axis.text = element_text(face = "bold", colour = "black", size = rel(1.1)),
+  theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+        axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         axis.line = element_line(size = 1),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+        legend.title = element_text(face = "bold", size = rel(1.5)),
+        legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
         legend.key.size = unit(1.2,'lines'),
-        legend.position = c(0.24, 0.87)) +
-  scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) + ylim(0,100) + 
+        legend.position = c(0.76, 0.16)) +
+  scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +  
   geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Minimum Throughput or Bandwidth")
@@ -1407,10 +1531,12 @@ bandwidth_MSA %>%
 bandwidth_LO<- utility %>%
   select(line_office, mission_area, X18..Minimum.Throughput.or.Bandwidth.Required) %>%
   dplyr::rename(bandwidth = X18..Minimum.Throughput.or.Bandwidth.Required) %>%
+  separate_rows(bandwidth, sep = ";") %>%
+    mutate(bandwidth = ifelse(bandwidth == ">5000 kps (including G3, G4, G5)", ">5000 kps", bandwidth)) %>% 
   mutate(bandwidth = as.factor(bandwidth)) %>% na.omit() %>%
   group_by(line_office, bandwidth) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
-  mutate(bandwidth = ordered(bandwidth, levels = c("480 bps","1200 bps","2400 bps","9.6 kps","128 kps","1200 kps","2400 kps","5000 kps",">5000 kps (including G3, G4, G5)"))) %>%
+  mutate(bandwidth = ordered(bandwidth, levels = c("480 bps","1200 bps","2400 bps","9.6 kps","128 kps","1200 kps","2400 kps","5000 kps",">5000 kps"))) %>%
   arrange(bandwidth) %>%
   group_by(line_office) %>%
   dplyr::summarize(bandwidth = bandwidth,
@@ -1436,7 +1562,7 @@ bandwidth_LO %>%
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.19, 0.88)) +
-  scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) + ylim(0,100) +
+  scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
   geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE,  color = guide_legend(title = "Line Office")) +
   labs(x = "Minimum Throughput or Bandwidth")
@@ -1445,6 +1571,7 @@ bandwidth_LO %>%
 freq_all<- utility %>%
   select(line_office, mission_area, X19.b.If.fixed.time.interval..indicate.minimum.temporal.frequency.) %>%
   dplyr::rename(freq = X19.b.If.fixed.time.interval..indicate.minimum.temporal.frequency.) %>%
+  separate_rows(freq, sep = ";") %>%
   mutate(freq = as.factor(freq)) %>%
   na.omit() %>%
   group_by(freq) %>%
@@ -1466,6 +1593,7 @@ freq_all<- utility %>%
 freq_MSA<- utility %>%
   select(line_office, mission_area, X19.b.If.fixed.time.interval..indicate.minimum.temporal.frequency.) %>%
   dplyr::rename(freq = X19.b.If.fixed.time.interval..indicate.minimum.temporal.frequency.) %>%
+  separate_rows(freq, sep = ";") %>%
   separate_rows(mission_area, sep = "; ") %>%
   mutate(freq = as.factor(freq)) %>% na.omit() %>%
   group_by(mission_area, freq) %>%
@@ -1496,7 +1624,7 @@ freq_MSA %>%
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.24, 0.87)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted") +
+  scale_x_discrete(limits = rev) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Minimum Temporal Frequency")
 
@@ -1504,6 +1632,7 @@ freq_MSA %>%
 freq_LO<- utility %>%
   select(line_office, mission_area, X19.b.If.fixed.time.interval..indicate.minimum.temporal.frequency.) %>%
   dplyr::rename(freq = X19.b.If.fixed.time.interval..indicate.minimum.temporal.frequency.) %>%
+  separate_rows(freq, sep = ";") %>%
   mutate(freq = as.factor(freq)) %>%
   na.omit() %>%
   group_by(line_office, freq) %>%
@@ -1534,7 +1663,7 @@ freq_LO %>%
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.19, 0.88)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) + geom_hline(yintercept = 50, linetype = "dotted") +
+  scale_x_discrete(limits = rev) + scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) +  geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Minimum Temporal Frequency")
 
@@ -1542,6 +1671,7 @@ freq_LO %>%
 transmit_freq_all<- utility %>%
   dplyr::select(line_office, mission_area, X19.c.If.ad.hoc.variable.immediate.send.on.platform.availability..indicate.longest.permissible.communications.temporal.window.to.transmit.data.required) %>%
   dplyr::rename(transmit_freq =  X19.c.If.ad.hoc.variable.immediate.send.on.platform.availability..indicate.longest.permissible.communications.temporal.window.to.transmit.data.required) %>%
+  separate_rows(transmit_freq, sep = ";") %>%
   mutate(transmit_freq = as.factor(transmit_freq)) %>% na.omit() %>%
   group_by(transmit_freq) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame()%>%
@@ -1561,6 +1691,7 @@ transmit_freq_MSA<- utility %>%
   dplyr::select(line_office, mission_area, X19.c.If.ad.hoc.variable.immediate.send.on.platform.availability..indicate.longest.permissible.communications.temporal.window.to.transmit.data.required) %>%
   separate_rows(mission_area, sep = "; ") %>%
   dplyr::rename(transmit_freq =  X19.c.If.ad.hoc.variable.immediate.send.on.platform.availability..indicate.longest.permissible.communications.temporal.window.to.transmit.data.required) %>%
+  separate_rows(transmit_freq, sep = ";") %>%
   mutate(transmit_freq = as.factor(transmit_freq)) %>% na.omit() %>%
   group_by(mission_area, transmit_freq) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
@@ -1588,7 +1719,8 @@ transmit_freq_MSA %>%
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.78, 0.13)) +
-  scale_x_discrete(limits = rev) + geom_hline(yintercept = 50, linetype = "dotted") + ylim(0,100) +
+  scale_x_discrete(limits = rev) + geom_hline(yintercept = 50, linetype = "dotted") +
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Longest Communications Temporal Window to Transmit Data")
 
@@ -1596,6 +1728,7 @@ transmit_freq_MSA %>%
 transmit_freq_LO<- utility %>%
   dplyr::select(line_office, mission_area, X19.c.If.ad.hoc.variable.immediate.send.on.platform.availability..indicate.longest.permissible.communications.temporal.window.to.transmit.data.required) %>%
   dplyr::rename(transmit_freq =  X19.c.If.ad.hoc.variable.immediate.send.on.platform.availability..indicate.longest.permissible.communications.temporal.window.to.transmit.data.required) %>%
+  separate_rows(transmit_freq, sep = ";") %>%
   mutate(transmit_freq = as.factor(transmit_freq)) %>% na.omit() %>%
   group_by(line_office, transmit_freq) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
@@ -1622,7 +1755,8 @@ transmit_freq_LO %>%
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.81, 0.11)) +
-  scale_x_discrete(limits = rev) + ylim(0,100) +
+  scale_x_discrete(limits = rev) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
   geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Longest Communications Temporal Window to Transmit Data")
@@ -1631,6 +1765,7 @@ transmit_freq_LO %>%
 latency_all<- utility %>%
   dplyr::select(line_office, mission_area, X20..What.is.the.longest.acceptable.temporal.latency.between.transmission.of.data.from.platform.to.receipt.at.central.data.center.or.receiving.organization) %>%
   dplyr::rename(latency =  X20..What.is.the.longest.acceptable.temporal.latency.between.transmission.of.data.from.platform.to.receipt.at.central.data.center.or.receiving.organization) %>%
+  separate_rows(latency, sep = ";") %>%
   mutate(latency = as.factor(latency)) %>%
   na.omit() %>%
   group_by(latency) %>%
@@ -1651,6 +1786,7 @@ latency_MSA<- utility %>%
   dplyr::select(line_office, mission_area, X20..What.is.the.longest.acceptable.temporal.latency.between.transmission.of.data.from.platform.to.receipt.at.central.data.center.or.receiving.organization) %>%
   separate_rows(mission_area, sep = "; ") %>%
   dplyr::rename(latency =  X20..What.is.the.longest.acceptable.temporal.latency.between.transmission.of.data.from.platform.to.receipt.at.central.data.center.or.receiving.organization) %>%
+  separate_rows(latency, sep = ";") %>%
   mutate(latency = as.factor(latency)) %>% na.omit() %>%
   group_by(mission_area, latency) %>%
   dplyr::summarize(survey_count = n()) %>% as.data.frame() %>%
@@ -1682,7 +1818,8 @@ latency_MSA %>%
         legend.text = element_text(face = "bold", colour = "black", size = rel(1.14)),
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.22, 0.86)) +
-  scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) + ylim(0,100) +
+  scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
   geom_hline(yintercept = 50, linetype = "dotted") +
   guides(linetype = FALSE, color = guide_legend(title = "Mission Area")) +
   labs(x = "Longest Temporal Latency")
@@ -1691,6 +1828,7 @@ latency_MSA %>%
 latency_LO<- utility %>%
   dplyr::select(line_office, mission_area, X20..What.is.the.longest.acceptable.temporal.latency.between.transmission.of.data.from.platform.to.receipt.at.central.data.center.or.receiving.organization) %>%
   dplyr::rename(latency =  X20..What.is.the.longest.acceptable.temporal.latency.between.transmission.of.data.from.platform.to.receipt.at.central.data.center.or.receiving.organization) %>%
+  separate_rows(latency, sep = ";") %>%
   mutate(latency = as.factor(latency)) %>% na.omit() %>%
   group_by(line_office, latency) %>%
   summarize(survey_count = n()) %>% as.data.frame()%>%
@@ -1724,7 +1862,8 @@ latency_LO %>%
         legend.key.size = unit(1.2,'lines'),
         legend.position = c(0.17, 0.87)) +
   scale_x_discrete(limits = rev, guide = guide_axis(n.dodge = 2)) +
-  geom_hline(yintercept = 50, linetype = "dotted") + ylim(0,100)+
+  geom_hline(yintercept = 50, linetype = "dotted") + 
+  scale_y_continuous(limits = c(0, 100), expand = c(0.01,0)) + 
   guides(linetype = FALSE, color = guide_legend(title = "Line Office")) +
   labs(x = "Longest Temporal Latency")
 ```
@@ -1954,14 +2093,14 @@ sat_provider_lo <- sat_provider_all %>%
 ggplot(sat_provider_lo, aes(x = reorder(sat_provider, sat_provider_count), y = sat_provider_count, fill = stringr::str_wrap(line_office,30))) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
-   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-         axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+   theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
          axis.line = element_line(size = 1),
-         legend.title = element_text(face = "bold", size = rel(1.4)),
-         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.13, 0.9)) +
+         legend.title = element_text(face = "bold", size = rel(1.6)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
+         legend.position = c(0.22, 0.89)) +
   labs(x = "Satellite Provider", y = "Count", fill = "Line Office") +
-  scale_fill_brewer(palette = "Set2")
+  scale_fill_manual(values = my_palette_lo)
 
 
 sat_provider_msa <- sat_provider_all %>%
@@ -1970,17 +2109,17 @@ sat_provider_msa <- sat_provider_all %>%
   group_by(mission_area, sat_provider) %>%
   summarize(sat_provider_count = n())
 
-ggplot(sat_provider_msa, aes(x = reorder(sat_provider, sat_provider_count), y = sat_provider_count, fill = stringr::str_wrap(mission_area,40))) +
+ggplot(sat_provider_msa, aes(x = reorder(sat_provider, sat_provider_count), y = sat_provider_count, fill = stringr::str_wrap(mission_area, 40))) +
    geom_bar(position = "stack", stat = "identity") +
    theme_classic() +
-   theme(axis.title = element_text(face = "bold", size = rel(1.4)),
-         axis.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
+   theme(axis.title = element_text(face = "bold", size = rel(1.8)),
+         axis.text = element_text(face = "bold", colour = "black", size = rel(1.6)),
          axis.line = element_line(size = 1),
-         legend.title = element_text(face = "bold", size = rel(1.4)),
-         legend.text = element_text(face = "bold", colour = "black", size = rel(1.2)),
-         legend.position = c(0.18, 0.9)) +
+         legend.title = element_text(face = "bold", size = rel(1.6)),
+         legend.text = element_text(face = "bold", colour = "black", size = rel(1.4)),
+         legend.position = c(0.3, 0.88)) +
   labs(x = "Satellite Provider", y = "Count", fill = "Mission Area") +
-  scale_fill_brewer(palette = "Set2")
+  scale_fill_manual(values = my_palette_msa)
 ```
 
 
@@ -1988,7 +2127,7 @@ Q9 v Q36
 ```{r}
 ####LO####
 tel_provider_current<- telemetry_new %>%
-  select(line_office, mission_area, Adapted9) %>% 
+  select(line_office, Adapted9) %>% 
   mutate(Adapted9 = replace(Adapted9, Adapted9 == "",NA)) %>%
   dplyr::rename(provider = Adapted9) %>%
   separate_rows(provider, sep = ";") %>%
@@ -1996,32 +2135,32 @@ tel_provider_current<- telemetry_new %>%
   mutate(provider_type = "current_provider") %>%
   mutate(total = length(provider_type)) %>%
   group_by(line_office) %>%
-  summarize(length_lo = n(),
+  dplyr::summarise(length_lo = n(),
             provider = provider,
             provider_type = provider_type,
             total = total) %>%
   as.data.frame() %>%
   group_by(line_office, provider) %>%
-  summarize(current_length_provider = n(),
+  dplyr::summarise(current_length_provider = n(),
             current_length_lo = length_lo,
             current_total = total,
             current_pcent = (current_length_provider/current_length_lo)*100) %>%
-  distinct(line_office, provider, .keep_all = TRUE)
+  distinct(line_office, provider, .keep_all = TRUE) %>%View()
 
 tel_provider_future <-  telemetry_new %>%
-  dplyr::select(line_office, mission_area, X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
+  dplyr::select(line_office, X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
   dplyr::rename(provider = X36..What.statement.best.characterizes.your.program.s.future...post.2027..plans.for.telemetry.service.provider.s.) %>%
   separate_rows(provider, sep = ";") %>%
   mutate(provider_type = "future_provider") %>%
   mutate(total = length(provider_type)) %>%
   group_by(line_office) %>%
-  summarize(length_lo = n(),
+  dplyr::summarise(length_lo = n(),
             provider = provider,
             provider_type = provider_type,
             total = total) %>%
   as.data.frame() %>%
   group_by(line_office, provider) %>%
-  summarize(future_length_provider = n(),
+  dplyr::summarise(future_length_provider = n(),
             future_length_lo = length_lo,
             future_total = total,
             future_pcent = (future_length_provider/future_length_lo)*100)%>%
@@ -2036,15 +2175,15 @@ tel_provider_comp_lo<- tel_provider_current %>%
   mutate(provider = replace(provider, provider == "Don't know which telemetry provider our program will use", "Don't know")) %>%
   mutate(pcent_change = future_pcent - current_pcent)
 
-ggplot(data = tel_provider_comp_lo, aes(x = stringr::str_wrap(provider,15), y = stringr::str_wrap(line_office,10), fill = pcent_change)) +
+ggplot(data = tel_provider_comp_lo, aes(x = stringr::str_wrap(provider, 12), y = stringr::str_wrap(line_office, 10), fill = pcent_change)) +
   geom_tile() +
   scale_fill_gradient2(midpoint = 0, low = "blue3", mid = "white", high = "red4") +
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Line Office", x = "Telemetry Provider", fill = "% Change") +
-  theme(axis.text = element_text(colour = "black", size = rel(1), face = "bold"),
-        axis.title = element_text(colour = "black", size = rel(1.4), face = "bold"),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(colour = "black", size = rel(1), face = "bold"),
+  theme(axis.text = element_text(colour = "black", size = rel(1.4), face = "bold"),
+        axis.title = element_text(colour = "black", size = rel(1.8), face = "bold"),
+        legend.title = element_text(face = "bold", size = rel(1.8)),
+        legend.text = element_text(colour = "black", size = rel(1.5), face = "bold"),
         panel.background = element_rect( colour = "white", fill = "white"),
         panel.border = element_rect(colour = "black", fill = "transparent", size = 1),
         axis.line = element_line(colour = "black", size = 1))
@@ -2060,13 +2199,13 @@ tel_provider_current_msa<- telemetry_new %>%
   mutate(provider_type = "current_provider") %>%
   mutate(total = length(provider_type)) %>%
   group_by(mission_area) %>%
-  summarize(length_msa = n(),
+  dplyr::summarise(length_msa = n(),
             provider = provider,
             provider_type = provider_type,
             total = total) %>%
   as.data.frame() %>%
   group_by(mission_area, provider) %>%
-  summarize(current_length_provider = n(),
+  dplyr::summarise(current_length_provider = n(),
             current_length_msa = length_msa,
             current_total = total,
             current_pcent = (current_length_provider/current_length_msa)*100) %>%
@@ -2080,13 +2219,13 @@ tel_provider_future_msa <-  telemetry_new %>%
   mutate(provider_type = "future_provider") %>%
   mutate(total = length(provider_type)) %>%
   group_by(mission_area) %>%
-  summarize(length_msa = n(),
+  dplyr::summarise(length_msa = n(),
             provider = provider,
             provider_type = provider_type,
             total = total) %>%
   as.data.frame() %>%
   group_by(mission_area, provider) %>%
-  summarize(future_length_provider = n(),
+  dplyr::summarise(future_length_provider = n(),
             future_length_msa = length_msa,
             future_total = total,
             future_pcent = (future_length_provider/future_length_msa)*100)%>%
@@ -2101,18 +2240,19 @@ tel_provider_comp_msa<- tel_provider_current_msa %>%
   mutate(provider = replace(provider, provider == "Don't know which telemetry provider our program will use", "Don't know")) %>%
   mutate(pcent_change = future_pcent - current_pcent)
 
-ggplot(data = tel_provider_comp_msa, aes(x = stringr::str_wrap(provider,15), y = stringr::str_wrap(mission_area,15), fill = pcent_change)) +
+ggplot(data = tel_provider_comp_msa, aes(x = stringr::str_wrap(provider, 12), y = stringr::str_wrap(mission_area, 15), fill = pcent_change)) +
   geom_tile() +
   scale_fill_gradient2(midpoint = 0, low = "blue3", mid = "white", high = "red4") +
   geom_tile(colour = "white", size = 0.25) +
   labs(y = "Mission Area", x = "Telemetry Provider", fill = "% Change") +
-  theme(axis.text = element_text(colour = "black", size = rel(1), face = "bold"),
-        axis.title = element_text(colour = "black", size = rel(1.4), face = "bold"),
-        legend.title = element_text(face = "bold", size = rel(1.4)),
-        legend.text = element_text(colour = "black", size = rel(1), face = "bold"),
+  theme(axis.text = element_text(colour = "black", size = rel(1.4), face = "bold"),
+        axis.title = element_text(colour = "black", size = rel(1.8), face = "bold"),
+        legend.title = element_text(face = "bold", size = rel(1.8)),
+        legend.text = element_text(colour = "black", size = rel(1.5), face = "bold"),
         panel.background = element_rect( colour = "white", fill = "white"),
         panel.border = element_rect(colour = "black", fill = "transparent", size = 1),
         axis.line = element_line(colour = "black", size = 1))
+
 ```
 
 

@@ -1,0 +1,299 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+#treename<-"NOSIA-II"
+treename<-"NOSIA-2-1"
+
+#networks
+r<-GET(paste0(eores,"get_reports_network_basic_information",sep=""))
+json_text<-content(r, as = "text")
+networks_json<-fromJSON(json_text)
+networks<-networks_json[['rptntwrkbasic']]
+write.csv(networks, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/networks.csv", row.names = FALSE)
+
+#networks2systems
+r<-GET(paste0(eores,"get_reports_network_observing_system_associations",sep=""))
+json_text<-content(r, as = "text")
+network2system_json<-fromJSON(json_text)
+network2system<-network2system_json[['rptntwrk2system']]
+write.csv(network2system, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/network2system.csv", row.names = FALSE)
+
+#network palma
+r<-GET(paste0(eores,"get_reports_network_palma_id",sep=""))
+json_text<-content(r, as = "text")
+network_palma_json<-fromJSON(json_text)
+network_palma<-network_palma_json[['rptntwrkpalmaid']]
+write.csv(network_palma, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/network_palma.csv", row.names = FALSE)
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+write.csv(systems, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/systems.csv", row.names = FALSE)
+
+#system POH
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+systems_poh_json<-fromJSON(json_text)
+systems_poh<-systems_poh_json[['rptsystemorgs']]
+write.csv(systems_poh, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/systems_poh.csv", row.names = FALSE)
+
+#system Documentation
+r<-GET(paste0(eores,"get_reports_observing_system_documentation",sep=""))
+json_text<-content(r, as = "text")
+systems_docs_json<-fromJSON(json_text)
+systems_docs<-systems_docs_json[['rptsystemdocs']]
+write.csv(systems_docs, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/systems_docs.csv", row.names = FALSE)
+
+#system dates
+r<-GET(paste0(eores,"get_reports_observing_system_key_dates",sep=""))
+json_text<-content(r, as = "text")
+systems_dates_json<-fromJSON(json_text)
+systems_dates<-systems_dates_json[['rptsystemdates']]
+write.csv(systems_dates, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/systems_dates.csv", row.names = FALSE)
+
+#system palma id
+r<-GET(paste0(eores,"get_reports_observing_system_palma_id",sep=""))
+json_text<-content(r, as = "text")
+systems_palma_json<-fromJSON(json_text)
+systems_palma<-systems_palma_json[['rptsystempalmaid']]
+write.csv(systems_palma, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/systems_palma.csv", row.names = FALSE)
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+write.csv(platforms, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/platforms.csv", row.names = FALSE)
+
+#platform dates
+r<-GET(paste0(eores,"get_reports_platform_key_dates",sep=""))
+json_text<-content(r, as = "text")
+platform2dates_json<-fromJSON(json_text)
+platform2dates<-platform2dates_json[['rptpltfrmdates']]
+write.csv(platform2dates, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/platform2dates.csv", row.names = FALSE)
+
+#platform palma
+r<-GET(paste0(eores,"get_reports_platform_palma_id",sep=""))
+json_text<-content(r, as = "text")
+platform_palma_json<-fromJSON(json_text)
+platform_palma<-platform_palma_json[['rptpltfrmpalmaid']]
+write.csv(platform_palma, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/platform_palma.csv", row.names = FALSE)
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+write.csv(platform2system, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/platform2system.csv", row.names = FALSE)
+
+#platform POH
+r<-GET(paste0(eores,"get_reports_platform_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+platforms_poh_json<-fromJSON(json_text)
+platforms_poh<-platforms_poh_json[['rptpltfrmorgs']]
+write.csv(platforms_poh, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/platforms_poh.csv", row.names = FALSE)
+
+#platform Documentation
+r<-GET(paste0(eores,"get_reports_platform_documentation",sep=""))
+json_text<-content(r, as = "text")
+platforms_docs_json<-fromJSON(json_text)
+platforms_docs<-platforms_docs_json[['rptpltfrmdocs']]
+write.csv(platforms_docs, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/platforms_docs.csv", row.names = FALSE)
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+write.csv(se, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se.csv", row.names = FALSE)
+
+#Sensing Elements Dates
+r<-GET(paste0(eores,"get_reports_sensing_element_key_dates",sep=""))
+json_text<-content(r, as = "text")
+se_dates_json<-fromJSON(json_text)
+se_dates<-se_dates_json[['rptsedates']]
+write.csv(se_dates, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se_dates.csv", row.names = FALSE)
+
+#Sensing Palma
+r<-GET(paste0(eores,"get_reports_sensing_element_palma_id",sep=""))
+json_text<-content(r, as = "text")
+se_palma_json<-fromJSON(json_text)
+se_palma<-se_palma_json[['rptsepalmaid']]
+write.csv(se_palma, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se_palma.csv", row.names = FALSE)
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+write.csv(se2platform, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se2platform.csv", row.names = FALSE)
+
+#se POH
+r<-GET(paste0(eores,"get_reports_sensing_element_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+se_poh_json<-fromJSON(json_text)
+se_poh<-se_poh_json[['rptseorgs']]
+write.csv(se_poh, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se_poh.csv", row.names = FALSE)
+
+#se Documentation
+r<-GET(paste0(eores,"get_reports_sensing_element_documentation",sep=""))
+json_text<-content(r, as = "text")
+se_docs_json<-fromJSON(json_text)
+se_docs<-se_docs_json[['rptsedocs']]
+write.csv(se_docs, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se_docs.csv", row.names = FALSE)
+
+#ep
+r<-GET(paste0(eores,"get_reports_environmental_parameter_basic_information",sep=""))
+json_text<-content(r, as = "text")
+ep_json<-fromJSON(json_text)
+ep<-ep_json[['rptenvparambasic']]
+write.csv(ep, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/ep.csv", row.names = FALSE)
+
+#ep palma
+r<-GET(paste0(eores,"get_reports_environmental_parameter_palma_id",sep=""))
+json_text<-content(r, as = "text")
+ep_palma_json<-fromJSON(json_text)
+ep_palma<-ep_palma_json[['rptenvparambasic']]
+write.csv(ep_palma, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/ep_palma.csv", row.names = FALSE)
+
+#se2ep
+r<-GET(paste0(eores,"get_reports_sensing_element_environmental_parameter_associations",sep=""))
+json_text<-content(r, as = "text")
+se2ep_json<-fromJSON(json_text)
+se2ep<-se2ep_json[['rptse2envparam']]
+write.csv(se2ep, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/se2ep.csv", row.names = FALSE)
+
+#gcmd master
+r<-GET(paste0(eores,"get_reports_gcmd_master",sep=""))
+json_text<-content(r, as = "text")
+gcmd_json<-fromJSON(json_text)
+gcmd<-gcmd_json[['rptgcmdmaster']]
+write.csv(gcmd, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/gcmd.csv", row.names = FALSE)
+
+#eorbasic
+r<-GET(paste0(eores,"get_reports_eor_basic_information",sep=""))
+json_text<-content(r, as = "text")
+eorbasic_json<-fromJSON(json_text)
+eorbasic<-eorbasic_json[['rpteorbasic']]
+write.csv(eorbasic, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eorbasic.csv", row.names = FALSE)
+
+#eor docs
+r<-GET(paste0(eores,"get_reports_eor_documentation",sep=""))
+json_text<-content(r, as = "text")
+eor_docs_json<-fromJSON(json_text)
+eor_docs<-eor_docs_json[['rpteordocs']]
+write.csv(eor_docs, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eor_docs.csv", row.names = FALSE)
+
+#eorgcmd
+r<-GET(paste0(eores,"get_reports_eor_gcmd_information",sep=""))
+json_text<-content(r, as = "text")
+eorgcmd_json<-fromJSON(json_text)
+eorgcmd<-eorgcmd_json[['rpteorgcmd']]
+write.csv(eorgcmd, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eorgcmd.csv", row.names = FALSE)
+
+#eor_ext_attributes
+r<-GET(paste0(eores,"get_reports_eor_extended_attribute_information",sep=""))
+json_text<-content(r, as = "text")
+eorextattr_json<-fromJSON(json_text)
+eorextattr<-eorextattr_json[['rpteorextattrib']]
+write.csv(eorextattr, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eorextattr.csv", row.names = FALSE)
+
+#eor_attribute
+r<-GET(paste0(eores,"get_reports_eor_standard_attribute_information",sep=""))
+json_text<-content(r, as = "text")
+eorattr_json<-fromJSON(json_text)
+eorattr<-eorattr_json[['rpteorstdattrib']]
+write.csv(eorattr, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eorattr.csv", row.names = FALSE)
+
+#eor_poh
+r<-GET(paste0(eores,"get_reports_eor_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+eor_poh_json<-fromJSON(json_text)
+eor_poh<-eor_poh_json[['rpteororgs']]
+write.csv(eor_poh, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eor_poh.csv", row.names = FALSE)
+
+#eor_vt
+r<-GET(paste0(eores,"get_reports_eor_value_tree_connections",sep=""))
+json_text<-content(r, as = "text")
+eor_vt_json<-fromJSON(json_text)
+eor_vt<-eor_vt_json[['rpteorvti']]
+write.csv(eor_vt, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eor_vt.csv", row.names = FALSE)
+
+#eor POC
+r<-GET(paste0(eores,"get_reports_eor_poc",sep=""))
+json_text<-content(r, as = "text")
+eor_poc_json<-fromJSON(json_text)
+eor_poc<-eor_poc_json[['rpteorpoc']]
+write.csv(eor_poc, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/eor_poc.csv", row.names = FALSE)
+
+#POC
+r<-GET(paste0(eores,"get_reports_person",sep=""))
+json_text<-content(r, as = "text")
+poc_json<-fromJSON(json_text)
+poc<-poc_json[['rptperson']]
+write.csv(poc, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/poc.csv", row.names = FALSE)
+
+#vt
+r<-GET(paste0(eores,"get_reports_value_tree_node",sep=""))
+json_text<-content(r, as = "text")
+vt_json<-fromJSON(json_text)
+vt<-vt_json[['rptvtnode']]
+write.csv(vt, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/vt.csv", row.names = FALSE)
+
+#vt poc
+r<-GET(paste0(eores,"get_reports_value_tree_node_poc",sep=""))
+json_text<-content(r, as = "text")
+vt_poc_json<-fromJSON(json_text)
+vt_poc<-vt_poc_json[['rptvtnodepoc']]
+write.csv(vt_poc, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/vt_poc.csv", row.names = FALSE)
+
+#survey
+r<-GET(paste0(eores,"get_reports_surveyed_product_elicitation_information",sep=""))
+json_text<-content(r, as = "text")
+survey_json<-fromJSON(json_text)
+survey<-survey_json[['rptprodelicit']]
+write.csv(survey, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/survey.csv", row.names = FALSE)
+
+#surveypoc
+r<-GET(paste0(eores,"get_reports_elicitation_poc",sep=""))
+json_text<-content(r, as = "text")
+survey_poc_json<-fromJSON(json_text)
+survey_poc<-survey_poc_json[['rptelicitpoc']]
+write.csv(survey_poc, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/survey_poc.csv", row.names = FALSE)
+
+#data sources
+r<-GET(paste0(eores,"get_reports_data_sources",sep=""))
+json_text<-content(r, as = "text")
+data_source_json<-fromJSON(json_text)
+data_source<-data_source_json[['rptdatasrc']]
+write.csv(data_source, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/data_source.csv", row.names = FALSE)
+
+
+#poh
+r<-GET(paste0(eores,"get_reports_physical_organization_hierarchy",sep=""))
+json_text<-content(r, as = "text")
+poh_json<-fromJSON(json_text)
+poh<-poh_json[['rptpoh']]
+write.csv(poh, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/eores_files/NOSIA-2-1/poh.csv", row.names = FALSE)
+```
+

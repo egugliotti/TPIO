@@ -1,0 +1,117 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+#remotes::install_github("nmfs-general-modeling-tools/nmfspalette")
+library(nmfspalette)
+library(viridis)
+library(ggimage)
+library(pals)
+npb_analysis<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/npb_analysis.csv")
+```
+
+```{r}
+ocean_winds<- npb_analysis %>%
+  filter(npb_analysis$NESDIS_Baseline_Product == "Ocean Surface Wind") %>%
+  filter(Parent_Level == 3) %>%
+  filter(Impact_Category != "N/A") %>%
+  filter(Improvement_Category != "N/A") %>%
+  mutate(`Parent ID` = gsub("\\_N2-1","", Parent_ID)) %>%
+  mutate(`Combo Category` = factor(paste0(Impact_Category,"/",Improvement_Category))) %>%
+  mutate(`Combo Category` = factor(`Combo Category`, levels = c("Critical/Critical","Essential/Essential", "Essential/Critical", "Essential/Enhancing", "Enhancing/Critical", "Enhancing/Essential", "Enhancing/Enhancing", "Supplemental/Supplemental"))) %>%
+  mutate(`Impact Category` = factor(Impact_Category, levels = c("Critical", "Essential", "Enhancing", "Supplemental"))) %>%
+  mutate(`Improvement Category` = factor(Improvement_Category, levels = c("Supplemental","Enhancing", "Essential","Critical" )))
+
+```
+
+```{r}
+cols1<- scales::viridis_pal()(6)
+cols2<-cols1[c(1,2,3,4)]
+ggplot(ocean_winds, aes(`Parent ID`, `Impact Category`, size = `Improvement Category`, color = `Impact Category`)) +
+  geom_point(alpha = 0.85) + coord_flip() + scale_colour_manual(values =cols2, guide = FALSE) + 
+  theme(panel.grid.major = element_line(size = 0.5, colour = "lightgrey"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(color = "black", fill = NA),
+        axis.ticks = element_blank(),
+        axis.text = element_text(colour = "black"),
+        legend.key = element_blank()
+)
+
+ggplot(ocean_winds, aes(`Parent ID`, `Impact Category`, fill = `Impact Category`)) +
+  geom_tile(aes(alpha = `Improvement Category`)) + coord_flip() + scale_fill_manual(values =cols2, guide = FALSE, na.value = "white") + xlab("Mission Service Area") +
+  theme(panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(color = "black", fill = NA),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_text(size = 16),
+        axis.text.y = element_text(size = 16),
+        axis.ticks = element_blank(),
+        axis.text = element_text(colour = "black"),
+        legend.key = element_blank(),
+        legend.text = element_text(size = 16),
+        legend.title = element_text(size = 16)
+)
+```
+
+dot plot with images
+```{r}
+
+cols1<- pals::brewer.rdylbu(n = 8)
+pal.bands(cols1)
+cols2<-cols1[c(8,7,6,5,4,3,2,1)]
+
+
+image_plot<- ocean_winds %>%
+  mutate(image = ifelse(Grandparent_ID == "CLI", "C:/Users/Elizabeth.Gugliotti/Documents/code/input/icons_NOAA_climate_nav_edited.png",
+                        ifelse(Grandparent_ID == "HO","C:/Users/Elizabeth.Gugliotti/Documents/code/input/icons_NOAA_fisheries_nav_edited.png",
+                               ifelse(Grandparent_ID == "RC", "C:/Users/Elizabeth.Gugliotti/Documents/code/input/icons_NOAA_oceanscoasts_nav_edited.png",
+                                      "C:/Users/Elizabeth.Gugliotti/Documents/code/input/icons_NOAA_weather_nav_edited.png"))))
+
+ggplot(image_plot, aes(Rank_Impact, Rank_Improvement, color = `Combo Category`)) +
+  geom_image(aes(image = image)) + scale_y_continuous(breaks = seq(0,70, by = 5), trans = "reverse") + scale_x_continuous(breaks = seq(0,70, by = 5), trans = "reverse")+ scale_color_manual(values = cols2) +
+  labs(x = "Impact Rank", y = "Improvement Rank", color = "Impact Category") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(color = "black", fill = NA, size = 1),
+        axis.text = element_text(colour = "black", size = 16),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 16),
+        legend.key = element_blank()
+)
+```
+
+
+dot plot with images # 2
+```{r}
+
+cols1<- pals::brewer.rdylbu(n = 10)
+#pal.bands(cols1)
+cols2<-cols1[c(1,4,7,10)]
+
+ggplot(image_plot, aes(Impact_Cumulative, Improvement_Cumulative, color = Grandparent_ID)) +
+  geom_image(aes(image = image)) + scale_color_manual(values = cols2) + scale_x_continuous(trans = "reverse", labels = c("Critical", "Enhancing", "Essential", "Supplemental"), breaks = c(0.25, 0.60, 0.82, .99), limits =c(1,0.1)) +
+  scale_y_continuous(trans = "reverse", labels = c("Critical", "Enhancing", "Essential", "Supplemental"), breaks = c(0.25, 0.60, 0.82, 1), limits =c(1,0.1)) +
+  labs(x = "Impact Category", y = "Improvement Category", color = "Goal") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(color = "black", fill = NA),
+        axis.text = element_text(colour = "black", size = 12),
+        axis.title = element_text(size = 16),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.key = element_blank()
+)
+```

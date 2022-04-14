@@ -18,11 +18,17 @@ library(officer)
 #eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
 #eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
 #eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
-eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
 
 #treename<-"EOA2016"
 treename<-"NOSIA-II"
 #treename<-"NOSIA-2-1"
+
+#EOS Hierarchy
+r<-GET(paste0(eores,"get_reports_eos_hierarchy",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rpteosh']]
 
 #systems
 r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
@@ -34,13 +40,16 @@ systems<-systems_json[['rptsystembasic']]
 r<-GET(paste0(eores,"get_reports_gcmd_master",sep=""))
 json_text<-content(r, as = "text")
 gcmd_json<-fromJSON(json_text)
-gcmd<-poh_json[['rptgcmdmaster']]
+gcmd<-gcmd_json[['rptgcmdmaster']]
 
 #platforms
 r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
 json_text<-content(r, as = "text")
 platforms_json<-fromJSON(json_text)
 platforms<-platforms_json[['rptpltfrmbasic']]
+platforms$platform_acronym<- gsub(" - spacecraft","", platforms$platform_acronym)
+platforms$platform_name<- gsub(" - Spacecraft","", platforms$platform_name)
+platforms$platform_name<- gsub("-spacecraft","", platforms$platform_name)
 
 #platforms2system
 r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
@@ -85,6 +94,7 @@ eorgcmd_json<-fromJSON(json_text)
 eorgcmd<-eorgcmd_json[['rpteorgcmd']]
 
 #eor_ext_attributes
+#We need the extended attributes so that we can filter the standard attributes and the requirements only for those that could be met from space (so none that have DAS or Flight Hours)
 r<-GET(paste0(eores,"get_reports_eor_extended_attribute_information",sep=""))
 json_text<-content(r, as = "text")
 eorextattr_json<-fromJSON(json_text)
@@ -93,6 +103,7 @@ eorextattr <- eorextattr %>%
   select(requirement_id, level, ods_flt_hrs_hods, ods_flt_hrs_hods_units)
 
 #eor_attribute
+#This is where we get rid of some columns we don't need and filter the standard attributes to those that don't have DAS or Flight Hours
 r<-GET(paste0(eores,"get_reports_eor_standard_attribute_information",sep=""))
 json_text<-content(r, as = "text")
 eorattr_json<-fromJSON(json_text)
@@ -117,42 +128,49 @@ eor_vt_json<-fromJSON(json_text)
 eor_vt<-eor_vt_json[['rpteorvti']]
 ```
 
-
-#NPB Joins for Requirements Output (for Lauraleen)
+#Files for Lauraleen's Tableau Dashboard
+##NPB Joins for Requirements Output (for Lauraleen)
+This is the first of two files that Lauraleen needs to make for her Tableau dashboard. Annotations of what is being done are commented within the chunk below.
 ```{r}
 #### System joins ####
+#Here we are joining the NPB "system" all the way down to environmental parameters and selecting the unique NPB GCMD pathways
 npb_system_joins <- systems %>%
-  filter(system_acronym == "NPB") %>%
+#  filter(system_acronym == "NPB") %>%
   left_join(platform2system, by = "system_id") %>%
   left_join(platforms, by = "platform_id") %>%
   left_join(se2platform, by = "platform_id") %>%
   left_join(se, by = "sensing_element_id") %>%
   left_join(ep2se, by = "sensing_element_id") %>%
-  left_join(ep, by = "environmental_parameter_id") %>%
-  mutate(gcmd_path = paste0(gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>%
+  left_join(ep, by = "environmental_parameter_id") %>% 
+  mutate(gcmd_path = paste0(gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>% filter(gcmd_variable == "Imagery: Multispectral") %>% View()
   distinct(gcmd_path, .keep_all = TRUE) %>%
   select(system_name, system_acronym, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2, gcmd_path) %>%
   filter(gcmd_path != "NANANANA")
 
-#IWPI in req name, fill in WRN_IWPI in MSA
-#attr level as rows
-#add goal
-#pwx for rwx where it's NA
 
-
-#### Deal with gcmds to match up to systems ####
-
+#### Deal with reqs and gcmds to match up to systems ####
+#Now we need to filter to have only ACTIVE requirements and filter rows in the requirements web service that have requirement ids but not requirement names
 eorbasic_filter<- eorbasic %>%
   filter(requirement_id %in% eorattr$requirement_id) %>%
   filter(requirement_status=="ACTIVE") %>%
   filter(!is.na(requirement_name))
 
+#Filter EOR gcmds so that only the ones present in the basic requirements are selected and select just the important columns in that file
 npb_eor_gcmd<- eorgcmd %>%
   mutate(gcmd_path = paste0(primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, primary_gcmd_variable_l2)) %>%
   filter(requirement_id %in% eorbasic_filter$requirement_id) %>%
   select(requirement_id, gcmd_path, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, primary_gcmd_variable_l2)
 
+
 #### Join npb system unique gcmds to eor ####
+#1. Full join the systems joins we did above to the EOR gcmds by the "gcmd_path" variable that we created in both files
+#2. Join to the filtered ACTIVE requirements. I'm using full join a lot and filtering out where the system_name is NA because I want to be positive I'm getting everything and I feel better about that this way
+#3. Join to the value tree information so that I can get the MSAs for each of the requirements
+#4. Mutate the value tree information to have IWPI requirements say WRN_IWPI and WRN_RWX to say WRN_PWX
+#5. Mutate the WMO, SPRWG, and USGEO SNWG requirements to say TBS in value tree information
+#6. Create a variable with all the attribute information and if there is none, remove that requirement (this is particularly for objective levels)
+#7. Rename columns to be what Lauraleen needs
+#8. Write to a .csv file to send to Lauraleen
 npb_joins <- npb_system_joins %>%
   full_join(npb_eor_gcmd, by = "gcmd_path") %>% 
   filter(!is.na(system_name)) %>%
@@ -187,8 +205,16 @@ write.csv(npb_joins, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/npb_req
 ```
 
 
-# NPB Joins for Tableau Dashboard Data Template (for Lauraleen)
+## NPB Joins for Tableau Dashboard Data Template (for Lauraleen)
+This is the second of two files that Lauraleen needs to make for her Tableau dashboard. Annotations of what is being done are commented within the chunk below.
 ```{r}
+#1. Like before, we are going to join the NPB "system" to the environmental parameter but instead of joining it with requirements, we are more focused on getting all the Baseline Product Names and categories which we must "manually" put in using R because those are not in EORES
+#2. We "manually" put in those product categories
+#3. Separate the platform name so that we just have the Thematic Product Area without any of the other wording EORES has
+#4. Separate the sensing element name (which we will rename Product Sub-Category) so that we don't have any of the extra wording EORES has
+#5. Separate the environmental parameter name (which we will rename Baseline Product) so that we don't have any of the extra wording or the unique baseline product identifier EORES has
+#6. Rename some of the columns to what Lauraleen needed them to be
+#7. Write to a .csv file and send to Lauraleen 
 npb_system_tableau <- systems %>%
   filter(system_acronym == "NPB") %>%
   left_join(platform2system, by = "system_id") %>%
@@ -221,21 +247,11 @@ write.csv(npb_system_tableau, "C:/Users/Elizabeth.Gugliotti/Documents/code/outpu
 ```
 
 
-Just baseline product name with unique gcmd pathways (for Lewis)
+#Tables for Lewis that are written to a word document table
+##Summary by Baseline Product and Priority/Type
+Tables with and without the total # of requirements per Baseline Product
 ```{r}
-product_pathways<- npb_system_tableau %>%
-  select(-geographic_coverage, -`Refresh Rate`, -`Refresh Rate Units`) %>%
-  mutate(combo = paste0(`Product Sub-Category`, `Baseline Product`,gcmd_topic,gcmd_term,`Environmental Variable`)) %>%
-  distinct(combo, .keep_all = TRUE) %>% 
-  filter(`Thematic Product Area` != "Analytical") %>%
-  select(`Baseline Product`, `Environmental Variable`)
-write.csv(product_pathways, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/product_and_pathways.csv", row.names = FALSE)
-```
-
-
-
-3. Include product name Priority 1 Active requirements from above filter (no WMO, SPRWG, SNWG) so...how many of these products have a priority
-```{r}
+#Join the NPB "system" the the environmental parameter and get just the Baseline Product names without the unique IDs. Then you want to create the unique_path to get the distinct baseline product names with their gcmd pathways (including the sensing element names because there are a couple baseline products that have the same name but in different categories)
 npb_system_joins2 <- systems %>%
   filter(system_acronym == "NPB") %>%
   left_join(platform2system, by = "system_id") %>%
@@ -244,128 +260,61 @@ npb_system_joins2 <- systems %>%
   left_join(se, by = "sensing_element_id") %>%
   left_join(ep2se, by = "sensing_element_id") %>%
   left_join(ep, by = "environmental_parameter_id") %>%
-  select(system_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  dplyr::select(system_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
   separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>%
-  mutate(gcmd_path = paste0(sensing_element_name, `Baseline Product`,gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>%
-  distinct(gcmd_path, .keep_all = TRUE) %>%
-  filter(gcmd_path != "NANANANA") %>% 
-  dplyr::select(-gcmd_path, -extra, -system_name)
+  mutate(unique_path = paste0(sensing_element_name,`Baseline Product`,gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>%
+  distinct(unique_path, .keep_all = TRUE) %>%
+  dplyr::select(-unique_path, -extra, -system_name)
 
 
-#gcmds
-npb_eor_gcmd2 <- npb_eor_gcmd %>%
-  rename(gcmd_topic = primary_gcmd_topic,
-         gcmd_term = primary_gcmd_term,
-         gcmd_variable = primary_gcmd_variable,
-         gcmd_variable_l2 = primary_gcmd_variable_l2) %>%
-  dplyr::select(-gcmd_path)
-
-
-#requirement attributes as columns instead of rows
-objective<- eorattr %>%
-  filter(level == "Objective") %>%
-  rename_with(~paste("objective", .x, sep = "_")) %>%
-  rename(requirement_id = objective_requirement_id) %>%
-  select(-objective_level) %>%
-  mutate_all(na_if,"")
-threshold<- eorattr %>%
-  filter(level == "Threshold") %>%
-  rename_with(~paste("threshold", .x, sep = "_")) %>%
-  rename(requirement_id = threshold_requirement_id) %>%
-  select(-threshold_level) %>%
-  mutate_all(na_if,"")
-eorattr_cols<- threshold %>%
-  full_join(objective, by = "requirement_id")
-
-
-# joins and data wrangling
-npb_joins_priority1_active <- npb_system_joins2 %>%
-  left_join(npb_eor_gcmd2, by = c("gcmd_topic","gcmd_term","gcmd_variable","gcmd_variable_l2")) %>%
-  left_join(eorbasic, by = "requirement_id") %>%
-  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  filter(requirement_priority ==1) %>%
-  filter(requirement_status == "ACTIVE") %>%
-  left_join(eor_poh, by = "requirement_id") %>%
-  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, level_4_short_name, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  left_join(eor_vt, by = "requirement_id") %>% 
-  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, level_4_short_name, value_tree_level_2, value_tree_level_3, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  mutate(requirement_source = replace(requirement_source, is.na(requirement_source), "COURL")) %>%
-  mutate(value_tree_level_3 = replace(value_tree_level_3, grep("IWPI",requirement_name), "WRN_IWPI")) %>%
-  mutate(value_tree_level_3 = replace(value_tree_level_3, value_tree_level_3=="WRN_RWX", "WRN_PWX")) %>% 
-  mutate(value_tree_level_3 = replace(value_tree_level_3, requirement_source %in% c("WMO","SPRWG","USGEO SNWG"), "TBS")) %>% 
-  mutate(value_tree_level_2 = replace(value_tree_level_2, requirement_source %in% c("WMO","SPRWG","USGEO SNWG"), "TBS")) %>%
-  mutate(value_tree_level_2 = replace(value_tree_level_2, value_tree_level_3 == "WRN_IWPI", "WRN")) %>% 
-  filter(!requirement_source %in% c("WMO","SPRWG","USGEO SNWG")) %>% 
-  left_join(eorattr_cols, by = "requirement_id") %>% 
-  dplyr::rename(line_office = level_4_short_name,
-         MSA = value_tree_level_3,
-         goal = value_tree_level_2) %>% select(-sensing_element_name)
-
-write.csv(npb_joins_priority1_active, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/npb_priority1_active_requirements.csv", row.names = FALSE)
-```
-
-
-Product Baseline > GCMD's > Requirement ID, Name, Priority, Type 
-Summary by Baseline Product and Priority/Type
-```{r}
-npb_system_joins2 <- systems %>%
-  filter(system_acronym == "NPB") %>%
-  left_join(platform2system, by = "system_id") %>%
-  left_join(platforms, by = "platform_id") %>%
-  left_join(se2platform, by = "platform_id") %>%
-  left_join(se, by = "sensing_element_id") %>%
-  left_join(ep2se, by = "sensing_element_id") %>%
-  left_join(ep, by = "environmental_parameter_id") %>%
-  select(system_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>%
-  mutate(gcmd_path = paste0(sensing_element_name,`Baseline Product`,gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>%
-  distinct(gcmd_path, .keep_all = TRUE) %>%
-  dplyr::select(-gcmd_path, -extra, -system_name)
-
-
-#gcmds
+#Rename EOR GCMD column names so they match the EOS GCMD column names
 npb_eor_gcmd2 <- eorgcmd %>%
-  select(requirement_id, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, primary_gcmd_variable_l2) %>%
+  dplyr::select(requirement_id, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, primary_gcmd_variable_l2) %>%
   rename(gcmd_topic = primary_gcmd_topic,
          gcmd_term = primary_gcmd_term,
          gcmd_variable = primary_gcmd_variable,
          gcmd_variable_l2 = primary_gcmd_variable_l2)
 
-
-# joins and data wrangling
+#Join and format data
+#1.Join the NPB system information to requirements by the gcmd topic, term, variable, and level 2 variable
+#2. Only select ACTIVE requirements that were in the filter EOR attribute information that we filtered in the first chunk of this markdown file
+#3. Make the requirement_source say COURL if it didn't have WMO, SPRWG, or USGEO SNWG and have the requirement_source include the priority as well
+#4. Write this to a .csv because Lewis asked for it, but I only did this for him once so I commented it out. You can delete the # to uncomment it and have it run.
 reqs2npb <- npb_system_joins2 %>%
   full_join(npb_eor_gcmd2, by = c("gcmd_topic","gcmd_term","gcmd_variable","gcmd_variable_l2")) %>% 
   filter(!is.na(`Baseline Product`)) %>%
   left_join(eorbasic[eorbasic$requirement_id %in% eorattr$requirement_id,], by = "requirement_id") %>%
-  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
   filter(requirement_status %in% c("ACTIVE", NA)) %>% 
-  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  dplyr::select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
   mutate(requirement_source = replace(requirement_source, is.na(requirement_source), "COURL")) %>%
   mutate(requirement_source = ifelse(requirement_source == "COURL", paste0(requirement_source," ", requirement_priority), requirement_source)) %>% 
   mutate(requirement_source = ifelse(requirement_source == "COURL NA", NA, requirement_source)) %>% 
   rename(`Product Sub-Category` = sensing_element_name)
+#write.csv(reqs2npb, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/reqs2npb_no_attributes.csv", row.names = FALSE)
 
-write.csv(reqs2npb, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/reqs2npb_no_attributes.csv", row.names = FALSE)
 
-# create data for tables
+#Take data from above and create data formatted for the tables
+#This table DOES include the number of overall requirements for that baseline product
+#1. Group by the sub-category and baseline product so that I can get all the gcmd's associated with each product pasted in the same column. The collapse = "\n" makes it so with every new gcmd pathway, it goes to a new line
+#2. You have to do as.data.frame() after each group_by so that it doesn't maintin that grouping moving forward
+#3. Count the number of requirements by WMO, SNWG, SPRWG, Priority 1, Priority 2, and Priority 3 for each Baseline Product
+#4. Mutate the requirement source and counts to be in the same column
 summary_reqs2npb<- reqs2npb %>%
   group_by(`Product Sub-Category`,`Baseline Product`) %>%
   summarize(`Relevant Environmental Variables` = paste("-", unique(gcmd_variable), collapse = "\n"),
-            requirement_source = requirement_source) %>%
-  as.data.frame() %>%
+            requirement_source = requirement_source) %>% as.data.frame() %>%
   group_by(`Product Sub-Category`, `Baseline Product`, requirement_source) %>%
   summarize(count_by_source = n(),
             `Relevant Environmental Variables` =`Relevant Environmental Variables`) %>%
   as.data.frame() %>%
   mutate(`Requirement Source` = paste0("- ",requirement_source, " = ", count_by_source))%>%
-  mutate(`Requirement Source` = ifelse(is.na(requirement_source),"", `Requirement Source`)) %>%
-  as.data.frame() %>%
+  mutate(`Requirement Source` = ifelse(is.na(requirement_source),"", `Requirement Source`)) %>%   as.data.frame() %>%
   group_by(`Product Sub-Category`, `Baseline Product`, `Relevant Environmental Variables`) %>%
-  summarize(`Requirement Source` = paste(unique(`Requirement Source`), collapse = "\n")) 
+  summarize(`Requirement Source` = paste(unique(`Requirement Source`), collapse = "\n")) %>%
   as.data.frame() %>%
   distinct(`Product Sub-Category`,`Baseline Product`, `Requirement Source`, `Relevant Environmental Variables`, .keep_all = TRUE) 
 
+#This table DOES include the number of overall requirements for that baseline product  
 overall_summary_reqs2npb<- reqs2npb %>%
   group_by(`Product Sub-Category`,`Baseline Product`) %>%
   summarize(`Relevant Environmental Variables` = paste("-", unique(gcmd_variable), collapse = "\n"),
@@ -407,7 +356,7 @@ ft_reqs2<-width(ft_reqs2, width = 1.5)
 ```
 
 
-4. % of Baseline Products with at least 1 matched EOR record
+## Create Table % of Baseline Products with at least 1 matched EOR record that looks like this
           | Foundational Products (total = 27) | Geophysical Products (total = 131) |
 COURL P1  |                 XX %               |                 XX %               |   
 COURL P2  |                 XX %               |                 XX %               |  
@@ -417,6 +366,7 @@ SNWG      |                 XX %               |                 XX %           
 WMO       |                 XX %               |                 XX %               |  
 
 ```{r}
+#Join the NPB "system" the the environmental parameter and get just the Baseline Product names without the unique IDs. Then you want to create the unique_path to get the distinct baseline product names with their gcmd pathways (including the sensing element names because there are a couple baseline products that have the same name but in different categories)
 npb_system_joins2 <- systems %>%
   filter(system_acronym == "NPB") %>%
   left_join(platform2system, by = "system_id") %>%
@@ -425,33 +375,32 @@ npb_system_joins2 <- systems %>%
   left_join(se, by = "sensing_element_id") %>%
   left_join(ep2se, by = "sensing_element_id") %>%
   left_join(ep, by = "environmental_parameter_id") %>%
-  select(system_name, platform_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  dplyr::select(system_name, platform_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
   separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>%
   mutate(gcmd_path = paste0(sensing_element_name,`Baseline Product`,gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>%
   distinct(gcmd_path, .keep_all = TRUE) %>%
   dplyr::select( -extra, -system_name)
 
 
-#gcmds
+#Rename EOR GCMD column names so they match the EOS GCMD column names
 npb_eor_gcmd2 <- eorgcmd %>%
-  select(requirement_id, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, primary_gcmd_variable_l2) %>%
+  dplyr::select(requirement_id, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable, primary_gcmd_variable_l2) %>%
   rename(gcmd_topic = primary_gcmd_topic,
          gcmd_term = primary_gcmd_term,
          gcmd_variable = primary_gcmd_variable,
          gcmd_variable_l2 = primary_gcmd_variable_l2)
 
+#Join GCMD to requirements data and filter accordingly
 eorbasic_filter_separately <- eorbasic %>%
   left_join(npb_eor_gcmd2, by = "requirement_id") %>%
   filter(requirement_status=="ACTIVE") %>%
   filter(requirement_id %in% eorattr$requirement_id) %>%
   filter(!is.na(requirement_name))
   
-# joins and data wrangling
+#Joins NPB system info to EOR, do some data formatting
 reqs2npb <- npb_system_joins2 %>%
   full_join(eorbasic_filter_separately, by = c("gcmd_topic","gcmd_term","gcmd_variable","gcmd_variable_l2")) %>%
-  select(platform_name, sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  select(platform_name, sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  select(platform_name, sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  dplyr::select(platform_name, sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
   mutate(requirement_source = replace(requirement_source, is.na(requirement_source), "COURL")) %>%
   mutate(requirement_source = ifelse(requirement_source == "COURL", paste0(requirement_source," ", requirement_priority), requirement_source)) %>% 
   mutate(requirement_source = replace(requirement_source, requirement_source=="COURL NA", NA)) %>%
@@ -459,6 +408,11 @@ reqs2npb <- npb_system_joins2 %>%
   filter(platform_name %in% c("Geophysical Products - NESDIS Products Baseline", "Foundational Products - NESDIS Products Baseline")) %>%
   mutate(sensing_npb_name = paste0(sensing_element_name, `Baseline Product`))
 
+#Summarizing data to produce percentages
+#1. Group by platform name (geophysical and foundational)
+#2. Summarize data to get counts by each of the requirement sources
+#3. Then summarize data to get percents
+#4. Format the data to look like the example above
 filter_npb_table <- reqs2npb %>%
   group_by(platform_name) %>%
   summarize(sensing_element_name = sensing_element_name,
@@ -477,12 +431,12 @@ filter_npb_table <- reqs2npb %>%
   separate(platform_name, c("platform_name", "extra"), sep = " -", extra = "drop") %>%
   mutate(product_category =  paste0(platform_name,"\n","(total =", all_count,")")) %>%
   mutate(requirement_source = replace(requirement_source, is.na(requirement_source), "No Requirements")) %>%
-  select(product_category, requirement_source, pcent_source) %>%
+  dplyr::select(product_category, requirement_source, pcent_source) %>%
   distinct(product_category, requirement_source, .keep_all = TRUE) %>%
   pivot_wider(names_from = product_category, values_from = pcent_source) %>% 
   rename(" " = requirement_source)
 
-
+#Create flextable
 ft_prods<-flextable(filter_npb_table)
 ft_prods<-theme_box(ft_prods)
 ft_prods<-align(ft_prods, align = "center", part = "header")
@@ -490,12 +444,13 @@ ft_prods<-width(ft_prods, width = 2.25)
 ft_prods
 ```
 
-Output Tables to Word Doc
+##Output All Tables to Word Doc
 ```{r}
+#The numbers inserted in the first four body_add_par commands are done by running several chunks below and just manually seeing how many rows there are and typing those in
 read_docx() %>%
-  body_add_par("Number of Baseline Products = 153 (26 Foundational & 127 Geophysical") %>%
-  body_add_par("Number of Baseline Products with at least 1 requirement = 136") %>%
-  body_add_par("Number of Baseline Products with no requirement match = 17") %>%
+  body_add_par("Number of Baseline Products = 154 (27 Foundational & 127 Geophysical") %>%
+  body_add_par("Number of Baseline Products with at least 1 requirement = 143") %>%
+  body_add_par("Number of Baseline Products with no requirement match = 10") %>%
   body_add_par("Number of Baseline Products with no GCMD match = 6") %>%
   body_add_par(" ") %>%
   body_add_par("Table Not Including Total # of Requirements per Baseline Product") %>%
@@ -510,27 +465,26 @@ read_docx() %>%
 ```
 
 
-Lewis Ask #3
-
-1. Total Unique Baseline Products in the Foundational and Geophysical Categories (should be 153: 26 Foundational, 127 Geophysical)
-# The number I got is different then what Lewis originally got because they had two products named the same thing under different sub-topics.
+###Lewis Ask for:
+####1. Total Unique Baseline Products in the Foundational and Geophysical Categories (should be 154: 27 Foundational, 127 Geophysical)
 ```{r}
-####Unique Products by their attributes (F = 43, G = 286)####
-npb_system_joins2 <- systems %>%
-  filter(system_acronym == "NPB") %>%
-  left_join(platform2system, by = "system_id") %>%
-  left_join(platforms, by = "platform_id") %>%
-  left_join(se2platform, by = "platform_id") %>%
-  left_join(se, by = "sensing_element_id") %>%
-  left_join(ep2se, by = "sensing_element_id") %>%
-  left_join(ep, by = "environmental_parameter_id") %>%
-  select(system_name, platform_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
-  separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>% 
-  separate(extra, c("stuff","unique_id")) %>% 
-  select(-stuff) %>% 
-  group_by(platform_name) %>%
-  distinct(platform_name, unique_id, .keep_all = TRUE) %>%
-  summarize(unique_products = n()) %>% View()
+####Unique Products by their attributes/unique ID (F = 43, G = 286)####
+#I don't run this very often so it's commented out
+#npb_system_joins2 <- systems %>%
+#  filter(system_acronym == "NPB") %>%
+#  left_join(platform2system, by = "system_id") %>%
+#  left_join(platforms, by = "platform_id") %>%
+#  left_join(se2platform, by = "platform_id") %>%
+#  left_join(se, by = "sensing_element_id") %>%
+#  left_join(ep2se, by = "sensing_element_id") %>%
+#  left_join(ep, by = "environmental_parameter_id") %>%
+#  select(system_name, platform_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+#  separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>% 
+#  separate(extra, c("stuff","unique_id")) %>% 
+#  select(-stuff) %>% 
+#  group_by(platform_name) %>%
+#  distinct(platform_name, unique_id, .keep_all = TRUE) %>%
+#  summarize(unique_products = n()) %>% View()
 
 ####Unique Products by their Product names (F = 26, G = 127)####
 npb_system_joins2 <- systems %>%
@@ -551,7 +505,7 @@ npb_system_joins2 <- systems %>%
 ```
 
 
-2. Number of Baseline Products with at least 1 EOR match based on GCMD variable: actually 136
+####2. Number of Baseline Products with at least 1 EOR match based on GCMD variable = 143
 ```{r}
 ####data wrangling####
 npb_system_joins2 <- systems %>%
@@ -577,7 +531,7 @@ npb_eor_gcmd2 <- eorgcmd %>%
          gcmd_variable_l2 = primary_gcmd_variable_l2)
 
 
-####Get table of baseline products with 1 eor match = 137####
+####Get table of baseline products with 1 eor match = 143####
 reqs2npb_1req_or_more <- npb_system_joins2 %>%
   full_join(npb_eor_gcmd2, by = c("gcmd_topic","gcmd_term","gcmd_variable","gcmd_variable_l2")) %>%
   full_join(eorbasic, by = "requirement_id") %>%
@@ -593,7 +547,7 @@ View(reqs2npb_1req_or_more)
 ```
 
 
-3. Number of Baseline Products with no matched EOR records = 17
+####3. Number of Baseline Products with no matched EOR records = 10
 ```{r}
 bp_no_eor <- systems %>%
   filter(system_acronym == "NPB") %>%
@@ -641,7 +595,7 @@ npb_system_joins_options <- systems %>%
   mutate(`GCMD 6` =replace_na(`GCMD 6`," ")) %>%
   filter(Category != "Analytical") %>%
   separate(sensing_element_name, c("Sub-Category", "extra"), extra = "drop", sep = " Products") %>% 
-  select(-extra) %>%
+  select(-extra) %>% View()
   write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/npb_gcmd_options.csv", row.names = FALSE)
 ```
 
@@ -742,4 +696,100 @@ npb_joins_all <- npb_system_joins5 %>%
   write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/npb_priority_1_yes.csv", row.names = FALSE)
 ```
 
+Just baseline product name with unique gcmd pathways (for Lewis)
+```{r}
+product_pathways<- npb_system_tableau %>%
+  select(-geographic_coverage, -`Refresh Rate`, -`Refresh Rate Units`) %>%
+  mutate(combo = paste0(`Product Sub-Category`, `Baseline Product`,gcmd_topic,gcmd_term,`Environmental Variable`)) %>%
+  distinct(combo, .keep_all = TRUE) %>% 
+  filter(`Thematic Product Area` != "Analytical") %>%
+  select(`Baseline Product`, `Environmental Variable`)
+write.csv(product_pathways, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/product_and_pathways.csv", row.names = FALSE)
+```
 
+
+
+3. Include product name Priority 1 Active requirements from above filter (no WMO, SPRWG, SNWG) so...how many of these products have a priority
+```{r}
+npb_system_joins2 <- systems %>%
+  filter(system_acronym == "NPB") %>%
+  left_join(platform2system, by = "system_id") %>%
+  left_join(platforms, by = "platform_id") %>%
+  left_join(se2platform, by = "platform_id") %>%
+  left_join(se, by = "sensing_element_id") %>%
+  left_join(ep2se, by = "sensing_element_id") %>%
+  left_join(ep, by = "environmental_parameter_id") %>%
+  select(system_name, sensing_element_name, environmental_parameter_name, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>%
+  mutate(gcmd_path = paste0(sensing_element_name, `Baseline Product`,gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2)) %>%
+  distinct(gcmd_path, .keep_all = TRUE) %>%
+  filter(gcmd_path != "NANANANA") %>% 
+  dplyr::select(-gcmd_path, -extra, -system_name)
+
+
+#gcmds
+npb_eor_gcmd2 <- npb_eor_gcmd %>%
+  rename(gcmd_topic = primary_gcmd_topic,
+         gcmd_term = primary_gcmd_term,
+         gcmd_variable = primary_gcmd_variable,
+         gcmd_variable_l2 = primary_gcmd_variable_l2) %>%
+  dplyr::select(-gcmd_path)
+
+
+#requirement attributes as columns instead of rows
+objective<- eorattr %>%
+  filter(level == "Objective") %>%
+  rename_with(~paste("objective", .x, sep = "_")) %>%
+  rename(requirement_id = objective_requirement_id) %>%
+  select(-objective_level) %>%
+  mutate_all(na_if,"")
+threshold<- eorattr %>%
+  filter(level == "Threshold") %>%
+  rename_with(~paste("threshold", .x, sep = "_")) %>%
+  rename(requirement_id = threshold_requirement_id) %>%
+  select(-threshold_level) %>%
+  mutate_all(na_if,"")
+eorattr_cols<- threshold %>%
+  full_join(objective, by = "requirement_id")
+
+
+# joins and data wrangling
+npb_joins_priority1_active <- npb_system_joins2 %>%
+  left_join(npb_eor_gcmd2, by = c("gcmd_topic","gcmd_term","gcmd_variable","gcmd_variable_l2")) %>%
+  left_join(eorbasic, by = "requirement_id") %>%
+  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  filter(requirement_priority ==1) %>%
+  filter(requirement_status == "ACTIVE") %>%
+  left_join(eor_poh, by = "requirement_id") %>%
+  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, level_4_short_name, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  left_join(eor_vt, by = "requirement_id") %>% 
+  select(sensing_element_name, `Baseline Product`, requirement_id, requirement_name, requirement_source, level_4_short_name, value_tree_level_2, value_tree_level_3, requirement_priority, requirement_status, gcmd_topic, gcmd_term, gcmd_variable, gcmd_variable_l2) %>%
+  mutate(requirement_source = replace(requirement_source, is.na(requirement_source), "COURL")) %>%
+  mutate(value_tree_level_3 = replace(value_tree_level_3, grep("IWPI",requirement_name), "WRN_IWPI")) %>%
+  mutate(value_tree_level_3 = replace(value_tree_level_3, value_tree_level_3=="WRN_RWX", "WRN_PWX")) %>% 
+  mutate(value_tree_level_3 = replace(value_tree_level_3, requirement_source %in% c("WMO","SPRWG","USGEO SNWG"), "TBS")) %>% 
+  mutate(value_tree_level_2 = replace(value_tree_level_2, requirement_source %in% c("WMO","SPRWG","USGEO SNWG"), "TBS")) %>%
+  mutate(value_tree_level_2 = replace(value_tree_level_2, value_tree_level_3 == "WRN_IWPI", "WRN")) %>% 
+  filter(!requirement_source %in% c("WMO","SPRWG","USGEO SNWG")) %>% 
+  left_join(eorattr_cols, by = "requirement_id") %>% 
+  dplyr::rename(line_office = level_4_short_name,
+         MSA = value_tree_level_3,
+         goal = value_tree_level_2) %>% select(-sensing_element_name)
+
+write.csv(npb_joins_priority1_active, "C:/Users/Elizabeth.Gugliotti/Documents/code/output/npb_priority1_active_requirements.csv", row.names = FALSE)
+```
+
+```{r}
+npb_system_joins <- systems %>%
+  filter(system_acronym == "NPB") %>%
+  left_join(platform2system, by = "system_id") %>%
+  left_join(platforms, by = "platform_id") %>%
+  left_join(se2platform, by = "platform_id") %>%
+  left_join(se, by = "sensing_element_id") %>%
+  left_join(ep2se, by = "sensing_element_id") %>%
+  left_join(ep, by = "environmental_parameter_id") %>%
+  separate(environmental_parameter_name, c("Baseline Product", "extra"), extra = "drop", sep = " Baseline Product") %>% 
+  separate(extra, c("stuff","unique_id")) %>%
+  mutate(unique_id = as.numeric(unique_id)) %>%
+  View()
+```

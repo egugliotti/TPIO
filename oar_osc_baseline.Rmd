@@ -1,0 +1,108 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(httr)
+library(rlist)
+library(dplyr)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+library(lubridate)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#systemsPOH
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+system2poh_json<-fromJSON(json_text)
+system2poh<-system2poh_json[['rptsystemorgs']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#platformsPOH
+r<-GET(paste0(eores,"get_reports_platform_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+platform2poh_json<-fromJSON(json_text)
+platform2poh<-platform2poh_json[['rptpltfrmorgs']]
+
+oar_osc_baseline_systems<-read.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/input/oar_osc_baseline_systems.csv")
+```
+
+
+```{r}
+neat_data<- systems %>%
+  filter(system_name %in% oar_osc_baseline_systems$system_name) %>%
+  select(system_id, system_acronym, system_name) %>%
+  left_join(system2poh, by = "system_id") %>% 
+  mutate(level_3_name = ifelse(level_3_name == "NONE", level_2_name, level_3_name)) %>%
+  mutate(level_3_short_name = ifelse(is.na(level_3_short_name), level_2_short_name, level_3_short_name)) %>%
+  select(-observing_system_poh_id, -level_1_name, -level_1_short_name, -level_2_name, -level_2_short_name, -level_8_name, -level_8_short_name, -poh_master_id) %>%
+  mutate(level_3_name = ifelse(is.na(level_3_name), level_3_name, paste0(level_3_name," (", level_3_short_name,")"))) %>%
+  mutate(level_4_name = ifelse(level_4_name == "NONE", NA, 
+                               ifelse(is.na(level_4_name), level_4_name, paste0(level_4_name," (", level_4_short_name,")")))) %>%
+  mutate(level_5_name = ifelse(level_5_name == "NONE", NA, 
+                               ifelse(is.na(level_5_name), level_5_name, paste0(level_5_name," (", level_5_short_name,")")))) %>%
+  mutate(level_6_name = ifelse(level_6_name == "NONE", NA, 
+                               ifelse(is.na(level_6_name), level_6_name, paste0(level_6_name," (", level_6_short_name,")")))) %>%
+  mutate(level_7_name = ifelse(level_7_name == "NONE", NA, 
+                               ifelse(is.na(level_7_name), level_7_name, paste0(level_7_name," (", level_7_short_name,")")))) %>%
+  select(-level_3_short_name, -level_4_short_name, -level_5_short_name, -level_6_short_name, -level_7_short_name)
+
+systems_simple<- systems %>%
+  select(system_id, system_acronym, system_name)
+
+neat_platforms<- platform2system %>%
+  filter(system_id %in% neat_data$system_id) %>% 
+  left_join(systems_simple, by = "system_id")%>%
+  left_join(platforms, by = "platform_id") %>%
+  select(system_id:platform_acronym) %>% 
+  left_join(platform2poh[platform2poh$poh_affiliation_type==c("PLATFORM OWNER", "PLATFORM OPERATOR"),], by = "platform_id") %>% 
+  filter(!is.na(platform_poh_id)) %>%
+  select(-platform_poh_id, -level_1_name, -level_1_short_name, -level_8_name, -level_8_short_name, - poh_master_id) %>%
+  mutate(level_3_name = ifelse(level_3_name == "NONE", level_2_name, level_3_name)) %>%
+  mutate(level_3_short_name = ifelse(is.na(level_3_short_name), level_2_short_name, level_3_short_name)) %>%
+  mutate(level_3_name = ifelse(is.na(level_3_name), level_3_name, paste0(level_3_name," (", level_3_short_name,")"))) %>%
+  mutate(level_4_name = ifelse(level_4_name == "NONE", NA, 
+                               ifelse(is.na(level_4_name), level_4_name, paste0(level_4_name," (", level_4_short_name,")")))) %>%
+  mutate(level_5_name = ifelse(level_5_name == "NONE", NA, 
+                               ifelse(is.na(level_5_name), level_5_name, paste0(level_5_name," (", level_5_short_name,")")))) %>%
+  mutate(level_6_name = ifelse(level_6_name == "NONE", NA, 
+                               ifelse(is.na(level_6_name), level_6_name, paste0(level_6_name," (", level_6_short_name,")")))) %>%
+  mutate(level_7_name = ifelse(level_7_name == "NONE", NA, 
+                               ifelse(is.na(level_7_name), level_7_name, paste0(level_7_name," (", level_7_short_name,")")))) %>%
+  select(-platform_id, -level_2_name, -level_2_short_name, -platform_name, -platform_acronym, -level_3_short_name, -level_4_short_name, -level_5_short_name, -level_6_short_name, -level_7_short_name)
+
+neato<- rbind(neat_data, neat_platforms)
+neato<- neato %>%
+  select(-system_id) %>%
+  arrange(system_name, poh_affiliation_type) %>% 
+  write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/oar_osc_baseline_poh.csv", row.names = FALSE)
+```
+

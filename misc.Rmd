@@ -50,10 +50,16 @@ r<-GET(paste0(eores,"get_reports_eor_extended_attribute_information",sep=""))
 json_text<-content(r, as = "text")
 eorext_attr_json<-fromJSON(json_text)
 eorext_attr<-eorext_attr_json[['rpteorextattrib']]
-eorext_attr<-eorext_attr %>%
-  select(requirement_id, level, data_latency, data_latency_units)
+#eorext_attr<-eorext_attr %>%
+#  select(requirement_id, level, data_latency, data_latency_units)
 
-#eor_attribute
+#eor_poh
+r<-GET(paste0(eores,"get_reports_eor_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+eor_poh_json<-fromJSON(json_text)
+eor_poh<-eor_poh_json[['rpteororgs']]
+
+#eor_docs
 r<-GET(paste0(eores,"get_reports_eor_documentation",sep=""))
 json_text<-content(r, as = "text")
 eordocs_json<-fromJSON(json_text)
@@ -76,6 +82,49 @@ r<-GET(paste0(eores,"get_reports_eor_organizational_affiliations",sep=""))
 json_text<-content(r, as = "text")
 eor_poh_json<-fromJSON(json_text)
 eor_poh<-eor_poh_json[['rpteororgs']]
+
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+
+#environmental parameters
+r<-GET(paste0(eores,"get_reports_environmental_parameter_basic_information",sep=""))
+json_text<-content(r, as = "text")
+ep_json<-fromJSON(json_text)
+ep<-ep_json[['rptenvparambasic']]
+
+#se2ep
+r<-GET(paste0(eores,"get_reports_sensing_element_environmental_parameter_associations",sep=""))
+json_text<-content(r, as = "text")
+ep2se_json<-fromJSON(json_text)
+ep2se<-ep2se_json[['rptse2envparam']]
 ```
 
 
@@ -198,5 +247,38 @@ fwx_docs<- fwx_req_ids %>%
   select(-eor_document_id, - document_type) %>%
   rename(requirement_id = Requirement.ID) %>% 
   write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/fwx_docs.csv", row.names = FALSE)
+```
+
+Technologies GCMD investigation
+```{r}
+#### eor ####
+eorgcmd_tech<- eorgcmd %>% select(requirement_id, primary_gcmd_topic, primary_gcmd_term, primary_gcmd_variable) %>% filter(primary_gcmd_term == "Technologies")
+
+eorbasic_tech<- eorbasic %>% select(requirement_id, requirement_name, requirement_priority, requirement_status)
+
+eorattr_tech<- eorattr %>% select(requirement_id, level, geographic_coverage, sampling_interval, sampling_interval_units) %>% filter(level == "Threshold")
+
+eorext_attr_tech<- eorext_attr %>% select(requirement_id, level, ods_flt_hrs_hods, ods_flt_hrs_hods_units) %>% filter(level == "Threshold")
+
+eorpoh_tech<- eor_poh %>% select(requirement_id, level_1_short_name, level_2_short_name, level_3_short_name, level_4_short_name)
+
+
+eor_tech<- eorgcmd_tech %>%
+  select(-primary_gcmd_topic) %>%
+  inner_join(eorbasic_tech, by = "requirement_id") %>%
+  left_join(eorpoh_tech, by = "requirement_id") %>%
+  left_join(eorattr_tech, by = "requirement_id") %>%
+  left_join(eorext_attr_tech, by = c("requirement_id","level")) %>% write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/eor_technologies.csv", row.names = FALSE)
+
+#### eos ####
+ep_tech <- ep %>% filter(gcmd_term == "Technologies") %>% 
+  select(environmental_parameter_id, environmental_parameter_name, gcmd_term, gcmd_variable, geographic_coverage, ods_flt_hrs_hods, ods_flt_hrs_hods_units, sampling_interval, sampling_interval_units) %>%
+  inner_join(ep2se, by = "environmental_parameter_id") %>%
+  left_join(se, by = "sensing_element_id") %>%
+  left_join(se2platform, by = "sensing_element_id") %>%
+  left_join(platforms, by = "platform_id") %>%
+  left_join(platform2system, by = "platform_id") %>%
+  left_join(systems, by = "system_id") %>% 
+  select(-sensing_element_environmental_parameter_id, -sensing_element_type, -sensing_element_deployment_plans, -swath_km, -revisit, -revisit_units, -acquisition_mode, -data_cost, -data_policy, -data_latency, -data_latency_units, -capability_type, -sensing_capabilities_remarks, -country_names.x, -date_last_updated.x, -platform_sensing_element_id, -platform_id, -sensing_element_id, -platform_description, -platform_deployment_plans, -orbit_type, -orbit_altitude_km, -orbit_inclination_deg, -orbit_period_min, -sun_side_equatorial_crossing_mode, -orbit_crossing_time, -nadir_repeat, -nadir_repeat_units, -satellite_longitude_deg, -orbit_eccentricity, -perigee_altitude_km, -apogee_altitude_km, -country_names.y, -date_last_updated.y, -system_platform_id, -system_id, -system_description, -system_intended_use, -system_deployment_plans, -country_names, -country_code, -date_last_updated, -system_type, -country_code.y, -country_code.x, -platform_type, -platform_acronym, -sensing_element_acronym, -platform_life_cycle_phase, -sensing_element_life_cycle_phase, -system_acronym) %>% write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/eos_technologies.csv", row.names = FALSE)
 ```
 

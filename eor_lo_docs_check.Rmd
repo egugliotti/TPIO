@@ -1,0 +1,118 @@
+---
+title: "EOR > LO > Docs"
+output: html_document
+---
+
+```{r}
+#Import packages and connect to EORES web servies
+library(httr)
+library(rlist)
+library(dplyr)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+library(plyr)
+library(readr)
+library(sjmisc)
+library(stringr)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+
+#poh
+r<-GET(paste0(eores,"get_reports_physical_organization_hierarchy",sep=""))
+json_text<-content(r, as = "text")
+poh_json<-fromJSON(json_text)
+poh<-poh_json[['rptpoh']]
+
+#eor_basic
+r<-GET(paste0(eores,"get_reports_eor_basic_information",sep=""))
+json_text<-content(r, as = "text")
+eor_basic_json<-fromJSON(json_text)
+eor_basic<-eor_basic_json[['rpteorbasic']]
+                        
+#eor_poh
+r<-GET(paste0(eores,"get_reports_eor_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+eor_poh_json<-fromJSON(json_text)
+eor_poh<-eor_poh_json[['rpteororgs']]
+
+#eor_docs
+r<-GET(paste0(eores,"get_reports_eor_documentation",sep=""))
+json_text<-content(r, as = "text")
+eor_docs_json<-fromJSON(json_text)
+eor_docs<-eor_docs_json[['rpteordocs']]
+```
+
+
+```{r}
+eor_join <- eor_basic %>%
+  filter(requirement_status == "ACTIVE") %>% #filter to active requirements
+  select(requirement_id, requirement_name, requirement_priority) %>% 
+  filter(requirement_priority %in% c(1,2,3)) %>% #filter to priority 1, 2, and 3 requirements
+  mutate(requirement_lo = gsub("\\ -.*", "", requirement_name)) %>% 
+  #create column named requirement lo by cutting off requirement name after the " -" so that in cases where the requirement name is ho-nesdis - operations and maintenance it just gets ho-nesdis
+  mutate(requirement_lo = gsub("wrn_", "", requirement_lo)) %>%
+  mutate(requirement_lo = gsub("\\_.*", "", requirement_lo)) %>% #also the same for requirements that have "_star" or "_afsc" AFTER so we just have the line office
+  mutate(requirement_lo = gsub(".*-", "", requirement_lo)) %>% #remove everything BEFORE the line office name like "ho-nesdis" become "nesdis"
+  mutate(requirement_lo = gsub("\\-.*", "", requirement_lo)) %>%  #remove everything AFTER lo if there is a nccos-ccfhr that will be nccos
+  mutate(requirement_lo = ifelse(requirement_lo %in% c("onms", "nccos", "orr", "coops", "ngs", "iocm"), "nos", requirement_lo)) %>% #replace the more specific nos offices with nos
+  full_join(eor_docs[eor_docs$document_type=="PORD Document"| eor_docs$document_type=="OURD Document", ], by = "requirement_id") %>% #join to docs when the doc is an OURD or PORD
+  drop_na(requirement_name) %>% #remove any rows where requirement name is blank
+  select(-eor_document_id, -document_url, -document_comment, -documentation_id) %>% #remove rows that aren't needed
+  left_join(eor_poh[c("requirement_id", "level_4_short_name", "poh_affiliation_type")], by = "requirement_id") %>%  #join to poh where just the requirement id and line office is selected in that poh file 
+  filter(poh_affiliation_type == "OWNER") %>% #only want requirement owners
+  select(-poh_affiliation_type) %>%
+  filter(str_detect(requirement_name, fixed(paste(c("-oar", "-nesdis", "-nos", "-omao", "nws", "-nmfs", "-onms", "-nccos", "-orr", "-coops", "-ngs", "-iocm"), collapse = '|'), ignore_case = TRUE))) %>% #only select requirement names that have the line office or more specific nos office in them, so not any that like the IWPI or ones that don't have the LO name in them
+  separate(document_name, c("document_lo", "extra"), sep = " ") %>% #get rid of anything in the document name that isn't the line office so "NOS Supplemental PORD" will become "NOS"
+  select(-extra) %>% 
+  mutate(document_lo = ifelse(document_lo %in% c("CT-MTS", "CT-GEO", "Geodesy"), "NOS", document_lo)) %>%
+  mutate(document_lo = ifelse(document_lo %in% c("WW-LFW_WFO/SPC", "WW-TSU"), "NWS", document_lo)) %>%
+  mutate(poh_match = str_detect(requirement_lo, fixed(level_4_short_name, ignore_case = TRUE))) %>% #T/F if poh matches the requirement lo
+  mutate(document_match = str_detect(requirement_lo, fixed(document_lo, ignore_case = TRUE))) %>% #T/F is document lo matches the requirement lo
+  mutate(all_match = str_detect(requirement_lo, fixed(level_4_short_name, ignore_case = TRUE)) &  
+           str_detect(requirement_lo, fixed(document_lo, ignore_case = TRUE))) %>% #T/F if both document lo and poh math requirement lo
+  dplyr::rename(poh_lo = level_4_short_name) %>% 
+  arrange(requirement_name) %>%
+  write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/requirement_owner_and_doc_match.csv", row.names = FALSE)
+  
+  #TO FIX
+  #CT-MTS is actually NGS (in NOS) so recode those as NOS
+  #WW-TSU is actually NWS, so recode those
+  #WW-LFW_WFO/SPC is actually NWS, so recode those
+  #wrn_nws_ needs to be detected, same for cli-nws_dbc
+  #rc-nccos-ccfhr - benthic habitat mapping FIX THIS
+  
+  
+  #for requirements that are active and have requirement_source == NOAA compare poh & doc do comparison of these and put in separate tab
+```
+
+
+```{r}
+no_name_eor_join <- eor_basic %>%
+  filter(requirement_status == "ACTIVE") %>% #filter to active requirements
+  select(requirement_id, requirement_name, requirement_priority) %>% 
+  filter(requirement_priority %in% c(1,2,3)) %>% #filter to priority 1, 2, and 3 requirements
+  full_join(eor_docs[eor_docs$document_type=="PORD Document"| eor_docs$document_type=="OURD Document", ], by = "requirement_id") %>% #join to docs when the doc is an OURD or PORD
+  drop_na(requirement_name) %>% #remove any rows where requirement name is blank
+  select(-eor_document_id, -document_url, -document_comment, -documentation_id) %>% #remove rows that aren't needed
+  left_join(eor_poh[c("requirement_id", "level_4_short_name", "poh_affiliation_type")], by = "requirement_id") %>%  #join to poh where just the requirement id and line office is selected in that poh file 
+  filter(poh_affiliation_type == "OWNER") %>% #only want requirement owners
+  select(-poh_affiliation_type) %>%
+  filter(!str_detect(requirement_name, paste(c("-oar", "-nesdis", "-nos", "-omao", "nws", "-nmfs", "-onms", "-nccos", "-orr", "-coops", "-ngs", "-iocm"), collapse = '|'))) %>% #only select requirement names that have the line office or more specific nos office in them, so not any that like the IWPI or ones that don't have the LO name in them
+  separate(document_name, c("document_lo", "extra"), sep = " ") %>% #get rid of anything in the document name that isn't the line office so "NOS Supplemental PORD" will become "NOS"
+  select(-extra) %>% 
+  mutate(document_lo = ifelse(document_lo %in% c("CT-MTS", "CT-GEO", "Geodesy"), "NOS", document_lo)) %>%
+  mutate(document_lo = ifelse(document_lo %in% c("WW-LFW_WFO/SPC", "WW-TSU"), "NWS", document_lo)) %>%
+  mutate(poh_match = str_detect(document_lo, fixed(level_4_short_name, ignore_case = TRUE))) %>% #T/F if poh matches the requirement lo
+  dplyr::rename(poh_lo = level_4_short_name) %>% 
+  arrange(requirement_name) %>%
+  write.csv("C:/Users/Elizabeth.Gugliotti/Documents/code/output/owner_and_doc_match.csv", row.names = FALSE)
+```
+

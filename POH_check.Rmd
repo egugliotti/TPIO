@@ -1,0 +1,269 @@
+---
+title: "IPL"
+output: html_document
+---
+
+```{r, echo = FALSE}
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+library(flextable)
+library(officer)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+treename<-"NOSIA-II"
+#treename<-"NOSIA-2-1"
+
+#poh
+r<-GET(paste0(eores,"get_reports_physical_organization_hierarchy",sep=""))
+json_text<-content(r, as = "text")
+poh_json<-fromJSON(json_text)
+poh<-poh_json[['rptpoh']]
+
+#networks
+r<-GET(paste0(eores,"get_reports_network_basic_information",sep=""))
+json_text<-content(r, as = "text")
+networks_json<-fromJSON(json_text)
+networks<-networks_json[['rptntwrkbasic']]
+
+#networks POH
+r<-GET(paste0(eores,"get_reports_network_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+network_poh_json<-fromJSON(json_text)
+network_poh<-network_poh_json[['rptntwrkorgs']]
+
+#networks POC
+r<-GET(paste0(eores,"get_reports_network_poc",sep=""))
+json_text<-content(r, as = "text")
+network_poc_json<-fromJSON(json_text)
+network_poc<-network_poc_json[['rptntwrkpoc']]
+
+#networks2systems
+r<-GET(paste0(eores,"get_reports_network_observing_system_associations",sep=""))
+json_text<-content(r, as = "text")
+network2system_json<-fromJSON(json_text)
+network2system<-network2system_json[['rptntwrk2system']]
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#system POH
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+systems_poh_json<-fromJSON(json_text)
+systems_poh<-systems_poh_json[['rptsystemorgs']]
+
+#system POC
+r<-GET(paste0(eores,"get_reports_observing_system_poc",sep=""))
+json_text<-content(r, as = "text")
+systems_poc_json<-fromJSON(json_text)
+systems_poc<-systems_poc_json[['rptsystempoc']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platform POH
+r<-GET(paste0(eores,"get_reports_platform_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+platforms_poh_json<-fromJSON(json_text)
+platforms_poh<-platforms_poh_json[['rptpltfrmorgs']]
+
+#platform POC
+r<-GET(paste0(eores,"get_reports_platform_poc",sep=""))
+json_text<-content(r, as = "text")
+platforms_poc_json<-fromJSON(json_text)
+platforms_poc<-platforms_poc_json[['rptpltfrmpoc']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+
+#se POH
+r<-GET(paste0(eores,"get_reports_sensing_element_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+se_poh_json<-fromJSON(json_text)
+se_poh<-se_poh_json[['rptseorgs']]
+
+#se POC
+r<-GET(paste0(eores,"get_reports_sensing_element_poc",sep=""))
+json_text<-content(r, as = "text")
+se_poc_json<-fromJSON(json_text)
+se_poc<-se_poc_json[['rptsepoc']]
+
+#eor
+r<-GET(paste0(eores,"get_reports_eor_basic_information",sep=""))
+json_text<-content(r, as = "text")
+eor_json<-fromJSON(json_text)
+eor<-eor_json[['rpteorbasic']]
+
+#eor POH
+r<-GET(paste0(eores,"get_reports_eor_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+eor_poh_json<-fromJSON(json_text)
+eor_poh<-eor_poh_json[['rpteororgs']]
+
+#eor POC
+r<-GET(paste0(eores,"get_reports_eor_poc",sep=""))
+json_text<-content(r, as = "text")
+eor_poc_json<-fromJSON(json_text)
+eor_poc<-eor_poc_json[['rpteorpoc']]
+
+#POC
+r<-GET(paste0(eores,"get_reports_person",sep=""))
+json_text<-content(r, as = "text")
+poc_json<-fromJSON(json_text)
+poc<-poc_json[['rptperson']]
+
+#vt
+r<-GET(paste0(eores,"get_reports_value_tree_node",sep=""))
+json_text<-content(r, as = "text")
+vt_json<-fromJSON(json_text)
+vt<-vt_json[['rptvtnode']]
+
+#vt poc
+r<-GET(paste0(eores,"get_reports_value_tree_node_poc",sep=""))
+json_text<-content(r, as = "text")
+vt_poc_json<-fromJSON(json_text)
+vt_poc<-vt_poc_json[['rptvtnodepoc']]
+
+#survey
+r<-GET(paste0(eores,"get_reports_surveyed_product_elicitation_information",sep=""))
+json_text<-content(r, as = "text")
+survey_json<-fromJSON(json_text)
+survey<-survey_json[['rptprodelicit']]
+
+#surveypoc
+r<-GET(paste0(eores,"get_reports_elicitation_poc",sep=""))
+json_text<-content(r, as = "text")
+survey_poc_json<-fromJSON(json_text)
+survey_poc<-survey_poc_json[['rptelicitpoc']]
+```
+
+I want to just select some columns from each data set here just so I don't have a billion rows
+```{r, echo = FALSE}
+networks<- networks %>% select(network_id, network_name, network_acronym)
+network_poh<-network_poh %>% select(network_id, poh_master_id)
+systems<-systems %>% select(system_id, system_name, system_acronym, system_life_cycle_phase)
+systems_poh<-systems_poh %>% select(system_id, poh_master_id, poh_affiliation_type)
+platforms<-platforms %>% select(platform_id, platform_name, platform_acronym, platform_life_cycle_phase)
+platforms_poh<-platforms_poh %>% select(platform_id, poh_master_id, poh_affiliation_type)
+se <- se %>% select(sensing_element_id, sensing_element_name, sensing_element_acronym, sensing_element_life_cycle_phase)
+se_poh<-se_poh %>% select(sensing_element_id, poh_master_id, poh_affiliation_type)
+eor<-eor %>% select(requirement_id, requirement_name, requirement_status, requirement_priority)
+vt<- vt %>% select(-ends_with(c("_long_name","_type")), -node_description, -node_weight)
+survey<- survey %>% select(surveyed_product_elicitation_id, value_tree_name, surveyed_product_name, palma_id, key_surveyed_product, poh_id)
+```
+
+Now I need to join the POC "master" to each of the other data sets POCs by their first name, last name and email. The POC "master" contains the poh_id so I want this to be joined to each data sets POC information
+```{r, ech0 = FALSE}
+network_poc2<- network_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email")) %>% select(network_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+systems_poc2<- systems_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email"))%>% select(system_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+platforms_poc2<- platforms_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email")) %>% select(platform_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+se_poc2<-se_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email")) %>% select(sensing_element_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+eor_poc2<-eor_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email"))%>% select(requirement_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+vt_poc2<-vt_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email"))%>% select(value_tree_node_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+survey_poc2<-survey_poc %>% left_join(poc, by = c("poc_first_name" = "first_name", "poc_last_name" = "last_name", "poc_email_address" = "email"))%>% select(surveyed_product_elicitation_id, poc_first_name, poc_last_name, poc_email_address, poh_id) %>%
+  rename(person_poh_id = poh_id)
+```
+
+
+After the first chunk has run, run the next code and use the searchable options to find the POH you are looking for to find the poh id
+
+For a demo, I viewed this and put in the search bar FSD. This gives me 2 results with FSD in them so I would want to use both of those poh id's if I want to change where FSD is or the name of FSD to something else. Thos poh ids are 1289 and 1618
+```{r}
+View(poh)
+```
+
+
+Now I'm actually going to be doing the search and I will be searching for poh id's not poh names. Everywhere in the code below where there is an x, put the poh id number that you found in the previous step. For a demo, I will use the pohs I found above.
+
+You could also filter and have a list and just have: filter(poh_master_id %in% c(#,#,#)| person_poh_id %in% c(#,#,#))
+```{r, echo=FALSE}
+####POH####
+poh_view<- poh %>% filter(poh_id %in% c(1289, 1618))
+
+####EOS####
+network_poc3<-network_poc2 %>% filter(person_poh_id %in% c(1289, 1618))
+networks_find_poh<- networks %>% full_join(network_poh, by = "network_id") %>% full_join(network_poc3, by = "network_id") %>% filter(poh_master_id %in% c(1289, 1618) | person_poh_id %in% c(1289, 1618))
+
+systems_poc3 <- systems_poc2 %>% filter(person_poh_id %in% c(1289, 1618))
+systems_find_poh <- systems %>% full_join(systems_poh, by = "system_id") %>% full_join(systems_poc2, by = "system_id") %>% filter(poh_master_id %in% c(1289, 1618) | person_poh_id %in% c(1289, 1618))
+
+platforms_poc3<- platforms_poc2 %>% filter(person_poh_id %in% c(1289, 1618))
+platforms_find_poh <- systems %>% dplyr::select(system_id, system_name, system_acronym) %>% full_join(platform2system, by = "system_id") %>% full_join(platforms, by = "platform_id") %>% full_join(platforms_poh, by = "platform_id") %>% full_join(platforms_poc3, by = "platform_id") %>% dplyr::select(-system_id, -system_platform_id) %>% filter(poh_master_id %in% c(1289, 1618) | person_poh_id %in% c(1289, 1618))
+
+se_poc3<- se_poc2 %>% filter(person_poh_id %in% c(1289, 1618))
+se_find_poh <- systems %>% dplyr::select(system_id, system_name, system_acronym) %>% full_join(platform2system, by = "system_id") %>% full_join(platforms, by = "platform_id") %>% full_join(se2platform, by = "platform_id") %>% full_join(se, by = "sensing_element_id") %>% full_join(se_poh, by = "sensing_element_id") %>% full_join(se_poc3, by = "sensing_element_id") %>% dplyr::select(-system_id, -system_platform_id, -platform_id, -platform_sensing_element_id) %>%  filter(poh_master_id %in% c(1289, 1618) | person_poh_id %in% c(1289, 1618))
+
+####EOR####
+eor_poc3<- eor_poc2 %>% filter(person_poh_id %in% c(1289, 1618))
+eor_find_poh <- eor %>% full_join(eor_poh, by = "requirement_id") %>% full_join(eor_poc2, by = "requirement_id") %>% filter(poh_master_id %in% c(1289, 1618) | person_poh_id %in% c(1289, 1618))
+
+####VTI####
+vt_find_poh <- vt %>% full_join(vt_poc2, by = "value_tree_node_id") %>% filter(person_poh_id %in% c(1289, 1618))
+survey_poc3<- survey_poc2 %>% filter(person_poh_id %in% c(1289, 1618))
+survey_find_poh <- survey %>% full_join(survey_poc2, by = "surveyed_product_elicitation_id") %>% filter(poh_id %in% c(1289, 1618) | person_poh_id %in% c(1289, 1618))
+```
+
+Output it all to 
+```{r}
+library(openxlsx)
+poh_search<- createWorkbook()
+addWorksheet(poh_search, "poh_searched")
+addWorksheet(poh_search, "eos_ntwrk")
+addWorksheet(poh_search, "eos_system")
+addWorksheet(poh_search, "eos_pltfrm")
+addWorksheet(poh_search, "eos_se")
+addWorksheet(poh_search, "eor")
+addWorksheet(poh_search, "vti_node")
+addWorksheet(poh_search, "vti_srvy")
+
+writeData(poh_search, sheet = 1, poh_view, rowNames = FALSE)
+writeData(poh_search, sheet = 2, networks_find_poh, rowNames = FALSE)
+writeData(poh_search, sheet = 3, systems_find_poh, rowNames = FALSE)
+writeData(poh_search, sheet = 4, platforms_find_poh, rowNames = FALSE)
+writeData(poh_search, sheet = 5, se_find_poh, rowNames = FALSE)
+writeData(poh_search, sheet = 6, eor_find_poh, rowNames = FALSE)
+writeData(poh_search, sheet = 7, vt_find_poh, rowNames = FALSE)
+writeData(poh_search, sheet = 8, survey_find_poh, rowNames = FALSE)
+
+
+saveWorkbook(poh_search, file = "C:/Users/Elizabeth.Gugliotti/Documents/code/output/poh_search.xlsx", overwrite = TRUE)
+```
+
+

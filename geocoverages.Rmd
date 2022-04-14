@@ -1,0 +1,284 @@
+---
+title: "geocoverages"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#install.packages(c("Rcpp","sp","sf","raster"))
+#install.packages(c('rgeos','maptools','FRK'))
+library(s2)
+library(Rcpp)
+library(sp)
+library(sf)
+library(raster)
+library(tidyverse)
+library(rgdal)
+library(rgeos)
+library(maptools)
+library(FRK)
+dir<-("C:/Users/Elizabeth.Gugliotti/Documents/code/input/shapefiles")
+ff<-list.files(dir, pattern = "\\.shp$", full.names = TRUE)
+
+```
+
+```{r}
+#see if this works
+p_alaska<-as(aggregate(st_combine(read_sf(ff[1])), dissolve = TRUE), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+
+
+p_atlantic<-as(read_sf(ff[2]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_california_current<-as(read_sf(ff[3]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_caribbean<-as(read_sf(ff[4]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_chesapeake<-as(read_sf(ff[5]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_coastal_global<-as(read_sf(ff[6]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_coastal_US<-as(read_sf(ff[7]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_coastal_US_Alaska<-as(read_sf(ff[8]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_coastal_US_East_Coast<-as(read_sf(ff[9]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_coastal_US_Gulf_of_Mexico<-as(read_sf(ff[10]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_coastal_US_West_Coast<-as(st_combine(read_sf(ff[11])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_CONUS<-as(st_combine(read_sf(ff[12])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_CONUS_AK_HI<-as(st_combine(read_sf(ff[13])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_CONUS_AK_HI_US_EEZ<-as(read_sf(ff[14]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_CONUS_AK_HI_US_Territories<-as(read_sf(ff[15]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Eastern_Tropical_Pacific_Ocean<-as(read_sf(ff[16]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_EEZ_Equatorial<-as(st_zm(read_sf(ff[17])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_EEZ_Hawaiian<-as(read_sf(ff[19]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_EEZ_US<-as(read_sf(ff[20]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Equatorial_Atlantic_Ocean<-as(st_zm(read_sf(ff[21])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Equatorial_Indian_Ocean<-as(st_zm(read_sf(ff[22])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Equatorial_Ocean<-as(st_zm(read_sf(ff[23])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Equatorial_Pacfic_Ocean<-as(st_zm(read_sf(ff[24])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Great_Lakes<-as(read_sf(ff[28]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Gulf_of_Mexico<-as(read_sf(ff[29]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Hemi_US<-as(st_zm(read_sf(ff[30])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Indian_Ocean<-as(read_sf(ff[31]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Marine_Sanctuary<-as(read_sf(ff[32]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0) %>% aggregate(dissolve = TRUE)
+p_NE_US_Shelf<-as(read_sf(ff[33]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_NERR_SW_Florida<-as(read_sf(ff[34]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_NERRS<-as(read_sf(ff[35]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_North_Atlantic_Ocean<-as(read_sf(ff[36]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_North_Pacific_Ocean<-as(read_sf(ff[37]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Pacific_Island_Complex<-as(read_sf(ff[38]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Pacific_Ocean<-as(read_sf(ff[39]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Polar_Region_Antarctic<-as(read_sf(ff[40]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Polar_Regions<-as(read_sf(ff[41]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Polar_Regions_Arctic<-as(read_sf(ff[42]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_SE_US_Shelf<-as(read_sf(ff[43]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_South_Atlantic_Ocean<-as(read_sf(ff[44]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_South_Pacific_Ocean<-as(read_sf(ff[45]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_TC_Marine_Surface_Analysis_AOR<-as(read_sf(ff[46]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Tropics_30N_30S<-as(st_zm(read_sf(ff[47])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_US_Coral_Reefs<-as(read_sf(ff[48]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_EEZ_Global<-as(read_sf(ff[18]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Global<-as(read_sf(ff[25]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Global_Land<-as(read_sf(ff[26]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+p_Global_Ocean<-as(read_sf(ff[27]), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+```
+
+```{r}
+int_combo1<-gIntersection(p_alaska, p_atlantic)
+int_combo2<-gIntersection(p_california_current,p_caribbean)
+int_combo3<-gIntersection(p_chesapeake,p_coastal_global)
+int_combo4<-gIntersection(p_coastal_US, p_coastal_US_Alaska)
+int_combo5<-gIntersection(p_coastal_US_East_Coast, p_coastal_US_Gulf_of_Mexico)
+int_combo6<-gIntersection(p_coastal_US_West_Coast,p_CONUS)
+pcent6<-round(area(int_combo6)/area(p_CONUS)*100, 2)
+
+int_combo7<-gIntersection(p_CONUS_AK_HI,p_CONUS_AK_HI_US_EEZ)
+int_combo8<-gIntersection(p_CONUS_AK_HI_US_Territories,p_Eastern_Tropical_Pacific_Ocean)
+int_combo9<-gIntersection(p_EEZ_Equatorial, p_EEZ_Hawaiian)
+int_combo10<-gIntersection(p_EEZ_US,p_Equatorial_Atlantic_Ocean)
+int_combo11<-gIntersection(p_Equatorial_Indian_Ocean, p_Equatorial_Ocean)
+int_combo12<-gIntersection(p_Equatorial_Pacfic_Ocean, p_Great_Lakes)
+int_combo13<-gIntersection(p_Gulf_of_Mexico,p_Hemi_US)
+int_combo14<-gIntersection(p_Indian_Ocean, p_Marine_Sanctuary)
+int_combo15<-gIntersection(p_NE_US_Shelf,p_NERR_SW_Florida)
+int_combo16<-gIntersection(p_NERRS,p_North_Atlantic_Ocean)
+int_combo17<-gIntersection(p_North_Pacific_Ocean, p_Pacific_Island_Complex)
+int_combo18<-gIntersection(p_Pacific_Ocean, p_Polar_Region_Antarctic)
+int_combo19<-gIntersection(p_Polar_Regions, p_Polar_Regions_Arctic)
+int_combo20<-gIntersection(p_SE_US_Shelf, p_South_Atlantic_Ocean)
+int_combo21<-gIntersection(p_South_Pacific_Ocean, p_TC_Marine_Surface_Analysis_AOR)
+int_combo22<-gIntersection(p_Tropics_30N_30S, p_US_Coral_Reefs)
+int_combo23<-gIntersection(p_EEZ_Global, p_Global)
+int_combo24<-gIntersection(p_Global_Ocean,p_Global_Land)
+
+
+pcent1<-round(area(int_combo1)/area(p_alaska)*100, 2)
+pcent2<-round(area(int_combo2)/area(p_caribbean)*100, 2)
+pcent3<-round(area(int_combo3)/area(p_coastal_global)*100, 2)
+pcent4<-round(area(int_combo4)/area(p_coastal_US_Alaska)*100, 2)
+pcent5<-round(area(int_combo5)/area(p_coastal_US_Gulf_of_Mexico)*100, 2)
+pcent6<-round(area(int_combo6)/area(p_CONUS)*100, 2)
+pcent7<-round(area(int_combo7)/area(p_CONUS_AK_HI_US_EEZ)*100, 2)
+pcent8<-round(area(int_combo8)/area(p_Eastern_Tropical_Pacific_Ocean)*100, 2)
+pcent9<-round(area(int_combo9)/area(p_EEZ_Hawaiian)*100, 2)
+pcent10<-round(area(int_combo10)/area(p_Equatorial_Atlantic_Ocean)*100, 2)
+pcent11<-round(area(int_combo11)/area(p_Equatorial_Ocean)*100, 2)
+pcent12<-round(area(int_combo12)/area(p_Great_Lakes)*100, 2)
+pcent13<-round(area(int_combo13)/area(p_Hemi_US)*100, 2)
+pcent14<-round(area(int_combo14)/area(p_Marine_Sanctuary)*100, 2)
+pcent15<-round(area(int_combo15)/area(p_NERR_SW_Florida)*100, 2)
+pcent16<-round(area(int_combo16)/area(p_North_Atlantic_Ocean)*100, 2)
+pcent17<-round(area(int_combo17)/area(p_Pacific_Island_Complex)*100, 2)
+pcent18<-round(area(int_combo18)/area(p_Polar_Region_Antarctic)*100, 2)
+pcent19<-round(area(int_combo19)/area(p_Polar_Regions_Arctic)*100, 2)
+pcent20<-round(area(int_combo20)/area(p_South_Atlantic_Ocean)*100, 2)
+pcent21<-round(area(int_combo21)/area(p_TC_Marine_Surface_Analysis_AOR)*100, 2)
+pcent22<-round(area(int_combo22)/area(p_US_Coral_Reefs)*100, 2)
+pcent23<-round(area(int_combo23)/area(p_Global)*100, 2)
+pcent24<-round(area(int_combo24)/area(p_Global_Land)*100, 2)
+
+```
+
+
+```{r}
+
+int_alaska_atlantic<-gIntersection(alaska, atlantic)
+int_alaska_atlantic #no overlap
+
+int_carib_atlantic<-gIntersection(caribbean, atlantic)
+round(area(int_carib_atlantic)/area(caribbean)*100, 2)
+round(area(int_carib_atlantic)/area(atlantic)*100,2)
+plot(p_atlantic, col = "grey")
+plot(p_chesapeake, col = "green")
+plot(int_carib_atlantic, col = "red", add = T)
+
+crs(p_atlantic)
+crs(p_chesapeake)
+int_cc_atlantic<-gIntersection(p_california_current, p_atlantic) #null
+
+int_ches_coastg<-gIntersection(p_chesapeake, p_coastal_global)
+int_ches_coastg
+round(area(int_ches_coastg)/area(p_coastal_global)*100, 2)
+
+plot(p_chesapeake, col = "green", add = T)
+plot(p_coastal_global, col = "grey")
+plot(int_ches_atlantic, col = "red", add = T)
+
+
+```
+
+st
+```{r}
+alaska<-st_read(ff[1])
+atlantic<-st_read(ff[2])
+california_current<-st_read(ff[3])
+caribbean<-st_read(ff[4])
+chesapeake<-st_read(ff[5])
+chesapeake<-st_transform(chesapeake, 4326)
+
+st_intersection(st_make_valid(chesapeake), atlantic)
+
+
+atlantic_sf<-read_sf(ff[2])
+coastal_US_sf2<-read_sf(ff[7])
+EEZ_Global<-read_sf(ff[18])
+coastal_US_sf<- coastal_US_sf2 %>%
+  select(-JOIN_EORES)
+st_intersection(st_make_valid(EEZ_Global),st_make_valid(atlantic_sf))
+x = st_transform(EEZ_Global, 4326)
+# qtm(x) # -->> fails
+w = s2_geog_from_wkb(st_as_binary(st_geometry(x)), check = FALSE)
+
+
+st_intersection(w,atlantic_sf)
+```
+
+p_EEZ_Global<-gBuffer(shapefile(ff[18]),byid=TRUE, width=0)
+
+```{r, echo=FALSE}
+#Use ls() to get a list of all environmental variables that start with p
+names_poly<-ls(pattern ='^p_.')
+#Use combn() to find all the unique combinations of polygons
+combos<-combn(names_poly,2)
+```
+
+
+```{r}
+#loop over combos to fetch polygons i and j named in combos. Use assign() to create a new object whose name is pasted together
+
+df<- data.frame(combo_name = character(),
+                percent_intersection_i = numeric(),
+                percent_intersection_j = numeric())
+combos_2<- combn(ff, 2)
+for(k in seq_along(combos[1,])){
+  i<-as(st_zm(read_sf(combos_2[1,])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+  j<-as(st_zm(read_sf(combos_2[2,])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+  x<-paste("intersecting",i,j)
+  int_combo<-gIntersection(get(i), get(j), byid = FALSE)
+  
+  if(!is.null(int_combo)) {
+  x2<-paste("intersecting",i,j)
+  pcent_i<-round(area(int_combo)/area(get(i))*100, 2)
+  pcent_j<-round(area(int_combo)/area(get(j))*100, 2)
+  
+  names<- paste0((combos_2[1,k], pattern = ""))
+  
+  
+  d<-data.frame(combo_name = x2,
+                percent_intersection_i = pcent_i,
+                percent_intersection_j = pcent_j)
+  df<- rbind(df,d)
+  }
+}
+
+
+
+
+i<-combos[1,51]
+j<-combos[2,51]
+int_combo<-gIntersection(get(i), get(j), byid = FALSE)
+int_combo
+pcent_i<-round(area(int_combo)/area(get(i))*100, 2)
+```
+
+The Real Loop
+```{r}
+combos_2<-combn(ff, 2)
+combos_2_select<- combos_2[,1:50]
+
+df<-data.frame(combo_name = character(),
+                percent_intersection_i = numeric())
+
+for(k in seq_along(combos_2_select[1,])){
+ 
+ i<-as(st_zm(st_combine(read_sf(combos_2[1,k]))), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0) 
+ j<-as(st_zm(st_combine(read_sf(combos_2[2,k]))), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0) 
+ 
+ int_combo<-gIntersection(i, j)
+ 
+ pcent_i<- ifelse(!is.null(int_combo), round(area(int_combo)/area(i)*100, 2), NA)
+# pcent_j<- ifelse(!is.null(int_combo), round(area(int_combo)/area(j)*100, 2), NA)
+ 
+ names<- paste0(trimws(trimws(combos_2[1,k], "left", "C:/Users/Elizabeth.Gugliotti/Documents/code/input/shapefiles/"), "right",".shp"), "_vs_", trimws(trimws(combos_2[2,k], "left", "C:/Users/Elizabeth.Gugliotti/Documents/code/input/shapefiles/"), "right",".shp"))
+ 
+ d<- data.frame(combo_name = names,
+                percent_intersection_i = pcent_i)
+ df<- rbind(df, d)
+}
+```
+
+
+```{r}
+intersection_combos<- function(v) {
+apply(combos_2, MARGIN = 2, FUN = intersection_combos)
+
+
+i<-as(st_zm(read_sf(combos_2[1,2])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+j<-as(st_zm(read_sf(combos_2[2,2])), Class = "Spatial") %>% spTransform(CRS("+proj=robin")) %>% gBuffer(byid=TRUE, width=0)
+ 
+int_combo<-gIntersection(i, j)
+
+pcent_i<- ifelse(!is.null(int_combo), round(area(int_combo)/area(i)*100, 2), NA)
+pcent_j<- ifelse(!is.null(int_combo), round(area(int_combo)/area(j)*100, 2), NA)
+ 
+names<- paste0(trimws(trimws(combos_2[1,1], "left", "C:/Users/Elizabeth.Gugliotti/Documents/code/input/shapefiles/"), "right",".shp"), "_vs_", trimws(trimws(combos_2[2,1], "left", "C:/Users/Elizabeth.Gugliotti/Documents/code/input/shapefiles/"), "right",".shp"))
+ 
+df<- data.frame(combo_name = names,
+                percent_intersection_i = pcent_i,
+                percent_intersection_j = pcent_j)
+d<- rbind(d, df)
+print(d)
+```
+

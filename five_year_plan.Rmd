@@ -1,0 +1,132 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ 
+Load EOS Information from EORES
+```{r}
+library(httr)
+library(rlist)
+library(dplyr)
+library(reactable)
+library(devtools)
+library(jsonlite)
+library(tidyverse)
+#install_github("jeroenooms/jsonlite")
+#eores<-"https://eorestest.nesdis-hq.noaa.gov/ws/ws/"
+eores<-"https://eoreswstest2.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+#eores<-"https://eores.nesdis-hq.noaa.gov/ws/ws/"
+
+#treename<-"EOA2016"
+#treename<-"NOSIA-II"
+treename<-"NOSIA-2-1"
+
+#systems
+r<-GET(paste0(eores,"get_reports_observing_system_basic_information",sep=""))
+json_text<-content(r, as = "text")
+systems_json<-fromJSON(json_text)
+systems<-systems_json[['rptsystembasic']]
+
+#system dates
+r<-GET(paste0(eores,"get_reports_observing_system_key_dates",sep=""))
+json_text<-content(r, as = "text")
+systems_dates_json<-fromJSON(json_text)
+systems_dates<-systems_dates_json[['rptsystemdates']]
+
+#system POH
+r<-GET(paste0(eores,"get_reports_observing_system_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+systems_poh_json<-fromJSON(json_text)
+systems_poh<-systems_poh_json[['rptsystemorgs']]
+
+#platforms
+r<-GET(paste0(eores,"get_reports_platform_basic_information",sep=""))
+json_text<-content(r, as = "text")
+platforms_json<-fromJSON(json_text)
+platforms<-platforms_json[['rptpltfrmbasic']]
+
+#platform dates
+r<-GET(paste0(eores,"get_reports_platform_key_dates",sep=""))
+json_text<-content(r, as = "text")
+platform2dates_json<-fromJSON(json_text)
+platform2dates<-platform2dates_json[['rptpltfrmdates']]
+
+#platform POH
+r<-GET(paste0(eores,"get_reports_platform_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+platforms_poh_json<-fromJSON(json_text)
+platforms_poh<-platforms_poh_json[['rptpltfrmorgs']]
+
+#platforms2system
+r<-GET(paste0(eores,"get_reports_observing_system_platform_associations",sep=""))
+json_text<-content(r, as = "text")
+platform2system_json<-fromJSON(json_text)
+platform2system<-platform2system_json[['rptsystem2pltfrm']]
+
+#Sensing Elements
+r<-GET(paste0(eores,"get_reports_sensing_element_basic_information",sep=""))
+json_text<-content(r, as = "text")
+se_json<-fromJSON(json_text)
+se<-se_json[['rptsebasic']]
+
+#Sensing Elements Dates
+r<-GET(paste0(eores,"get_reports_sensing_element_key_dates",sep=""))
+json_text<-content(r, as = "text")
+se_dates_json<-fromJSON(json_text)
+se_dates<-se_dates_json[['rptsedates']]
+
+#se POH
+r<-GET(paste0(eores,"get_reports_sensing_element_organizational_affiliations",sep=""))
+json_text<-content(r, as = "text")
+se_poh_json<-fromJSON(json_text)
+se_poh<-se_poh_json[['rptseorgs']]
+
+#se2platform
+r<-GET(paste0(eores,"get_reports_platform_sensing_element_associations",sep=""))
+json_text<-content(r, as = "text")
+se2platform_json<-fromJSON(json_text)
+se2platform<-se2platform_json[['rptpltfrm2se']]
+```
+
+
+```{r}
+systems<- systems %>%
+  select(system_id, system_name, system_acronym, system_type, system_life_cycle_phase) %>%
+  filter(grepl("Satellite", system_type))
+
+systems_dates <- systems_dates %>%
+  filter(date_type != "OSC Comment") %>%
+  filter(system_id %>% systems$system_id) %>%
+  select(-date_comment, -system_date_id)
+
+systems_poh <- systems_poh %>%
+  select(system_id, poh_affiliation_type, level_3_short_name) %>%
+  filter(poh_affiliation_type == "OBSERVING SYSTEM OWNER") %>%
+  filter(system_id %>% systems$system_id)
+
+platforms <- platforms %>%
+  select(platform_id, platform_name, platform_acronym, platform_type, platform_life_cycle_phase)
+
+platform2dates <- platform2dates %>%
+  filter(date_type != "OSC Comment") %>%
+  select(-date_comment, -platform_date_id) %>%
+  rename(platform_date_type = date_type,
+         platform_date = date)
+
+platforms_poh <- platforms_poh %>%
+  select(platform_id, poh_affiliation_type, level_3_short_name) %>%
+  filter(poh_affiliation_type %in% c("OBSERVING SYSTEM OWNER", "PLATFORM OWNER")) %>%
+  rename(platform_poh_type = poh_affiliation_type,
+         platform_poh_name = level_3_short_name)
+
+se <- se %>%
+  select(sensing_element_id, sensing_element_name, sensing_element_acronym)
+
+se_dates<- se_dates %>% 
+  filter(date_type != "OSC Comment") %>%
+  select(-date_comment, -sensing_element_date_id) %>%
+  rename(sensing_element_date_type)
+```
+
